@@ -6,24 +6,16 @@ Experimental tesylation game for Android
 
 
 #### uTurn Application Icon: 
-![alt text][2][1]
-  [2]: doc-files/iconLarge.png
-  [1]: https://github.com/deanclark/uTurnAnd/doc-files/iconLarge.png "Image of Main Screen"
+ !["Image of Main Screen"](https://github.com/deanclark/uTurnAnd/blob/master/doc-files/iconLarge.png)
 
 #### Main Board: 
-![alt text][4][3]
-  [4]: doc-files/iconLargeFlat.png
-  [3]: https://github.com/deanclark/uTurnAnd/doc-files/iconLargeFlat.png "Image of Main Screen"
+ !["Image of Main Screen"](https://github.com/deanclark/uTurnAnd/blob/master/doc-files/iconLargeFlat.png)
 
 #### Main Screen: 
-![alt text][6][5]
-  [6]: doc-files/ScreenShot-Main-2016-04-26.png
-  [5]: https://github.com/deanclark/uTurnAnd/doc-files/ScreenShot-Main-2016-04-26.png "Image of Main Screen"
+ !["Image of Main Screen"](https://github.com/deanclark/uTurnAnd/blob/master/doc-files/ScreenShot-Main-2016-04-26.png)
 
 #### Options Screen: 
-![alt text][8][7]
-  [8]: doc-files/ScreenShot-Options-2016-04-26.png
-  [7]: https://github.com/deanclark/uTurnAnd/doc-files/ScreenShot-Options-2016-04-26.png "Image of Main Screen"
+ !["Image of Main Screen"](https://github.com/deanclark/uTurnAnd/blob/master/doc-files/ScreenShot-Options-2016-04-26.png)
 
 
 Controls
