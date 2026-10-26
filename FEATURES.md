@@ -32,8 +32,8 @@ Items already done are marked ✅.
 | ✅ **Unlimited levels** (board grows to 6x8, then fewer colours make it harder) and **progress saved** across minimise, restart and rotation | Done | - |
 | **Level map / level select**: jump back to any level already reached | Lets players revisit favourites and skip ahead after a break | M |
 | **Stars per level** (moves, time, hints used) and a best-score record | Gives a reason to replay | M |
-| **Hints**: highlight one wrong tile, or reveal a corner; limited free hints, earned back by playing | Keeps stuck players from quitting | S |
-| **Undo / redo** of moves | Removes fear of experimenting | S |
+| ✅ **Hints**: outline the next tile to move and where it goes (never undoes the player's correct placements). Still to add: limited free hints earned by playing, a hint counter in the results | Keeps stuck players from quitting | S |
+| ✅ **Undo / redo** of moves (unlimited, per level) | Removes fear of experimenting | S |
 | **Themed chapters** (every 10 levels a new picture pack, music mood and background) | Gives levels identity and a sense of a journey | M |
 | **Handcrafted and special levels**: fixed-shape boards (heart, star), boards with locked tiles, hidden-picture boards that reveal as you solve | Variety beyond bigger grids | L |
 | **Daily puzzle**: same board for everyone, one a day, with a streak counter | The strongest long-term retention mechanic for puzzle games | M |

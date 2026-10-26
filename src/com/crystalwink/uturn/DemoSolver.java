@@ -42,6 +42,7 @@ public final class DemoSolver {
     private final boolean[] used;
     private final List<int[]> order = new ArrayList<>();   // {row, column} in search order
     private int nodes;
+    private int[] preferredTile;   // per cell: the tile currently in it, or null when not preferring
 
     private DemoSolver(int[][] tiles, int rows, int columns, int outside) {
         this.tiles = tiles;
@@ -55,10 +56,27 @@ public final class DemoSolver {
 
     /** @return the plan, or null when the tiles cannot form a board. */
     public static List<Placement> solve(int[][] tiles, int rows, int columns, int outside) {
+        return solve(tiles, rows, columns, outside, null);
+    }
+
+    /**
+     * @param cellOfTile where each tile currently is (row * columns + column), or null. When given, the search tries
+     *                   to keep each tile in the cell it is in and the way it is turned, so a partly solved board is
+     *                   completed rather than re-solved from scratch.
+     * @return the plan, or null when the tiles cannot form a board
+     */
+    public static List<Placement> solve(int[][] tiles, int rows, int columns, int outside, int[] cellOfTile) {
         if (rows < 2 || columns < 2 || tiles.length != rows * columns) {
             return null;
         }
         DemoSolver solver = new DemoSolver(tiles, rows, columns, outside);
+        if (cellOfTile != null) {
+            solver.preferredTile = new int[tiles.length];
+            Arrays.fill(solver.preferredTile, -1);
+            for (int tile = 0; tile < cellOfTile.length; tile++) {
+                solver.preferredTile[cellOfTile[tile]] = tile;
+            }
+        }
         solver.buildOrder();
         if (!solver.search(0)) {
             return null;
@@ -115,8 +133,12 @@ public final class DemoSolver {
         int row = order.get(position)[0];
         int column = order.get(position)[1];
         int cell = row * columns + column;
-        for (int tile = 0; tile < tiles.length; tile++) {
-            if (used[tile] || hasUnusedTwin(tile)) {
+        int preferred = preferredTile == null ? -1 : preferredTile[cell];
+        for (int attempt = 0; attempt < tiles.length + 1; attempt++) {
+            // the tile already in this cell is tried first, then the rest in order
+            int tile = attempt == 0 ? preferred : attempt - 1;
+            if (tile < 0 || used[tile] || (attempt > 0 && tile == preferred)
+                    || (attempt > 0 && hasUnusedTwin(tile))) {
                 continue;   // a look-alike earlier in the list would lead to exactly the same search
             }
             for (int turn = 0; turn < 4; turn++) {

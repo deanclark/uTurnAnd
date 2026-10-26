@@ -82,6 +82,8 @@ public class uTurn extends Activity
     private static final String PREF_THEME = "theme";
     private static final String PREF_MUSIC = "music";
     private MusicPlayer musicPlayer;
+    private final MoveHistory history = new MoveHistory();
+    private int hintsUsed;   // this level; the basis for star ratings later
     private int musicSetting;   // 0 off, 1 soothing, 2 focus, 3 intense
     private GameState restoredBoard;   // board from a previous run of the app, used once by the next init()
     private final Handler gameHandler = new Handler(Looper.getMainLooper());
@@ -115,6 +117,8 @@ public class uTurn extends Activity
     int demoIndex, demoPhase, demoFrame, demoMovingTile = -1, demoOccupant = -1;
     boolean demoBorderVerified;
     long demoNextAt;
+    int hintFromCell = -1, hintToCell = -1;   // highlighted cells while a hint is showing
+    long hintUntil;
     long demoFromX, demoFromY, demoToX, demoToY;
     
     int currentOffsetX = 0;
@@ -247,6 +251,37 @@ public class uTurn extends Activity
        return BoardRules.isSolved(cellColors, rows, columns, BoardRules.OUTSIDE_EDGE);
    }
 
+   private void undoMove() {
+       if (uturnview != null) {
+           uturnview.undoMove();
+       }
+   }
+
+   private void redoMove() {
+       if (uturnview != null) {
+           uturnview.redoMove();
+       }
+   }
+
+   private void showHint() {
+       if (uturnview != null) {
+           uturnview.showHint();
+       }
+   }
+
+   private boolean gameIdle() {
+       return uturnview != null && !levelAdvancePending && !demoOn && initialTileId < 0;
+   }
+
+   @Override
+   public boolean onPrepareOptionsMenu(Menu menu) {
+       boolean idle = gameIdle();
+       menu.findItem(R.id.undo).setEnabled(idle && history.canUndo());
+       menu.findItem(R.id.redo).setEnabled(idle && history.canRedo());
+       menu.findItem(R.id.hint).setEnabled(idle);
+       return super.onPrepareOptionsMenu(menu);
+   }
+
    private void soundToggle() {
 	   if(soundOn)
 	   {
@@ -321,7 +356,16 @@ public class uTurn extends Activity
    /* Handles item selections */ 
    public boolean onOptionsItemSelected(MenuItem item) { 
        int itemId = item.getItemId();
-       if (itemId == id.new_game) {
+       if (itemId == id.undo) {
+           undoMove();
+           return true;
+       } else if (itemId == id.redo) {
+           redoMove();
+           return true;
+       } else if (itemId == id.hint) {
+           showHint();
+           return true;
+       } else if (itemId == id.new_game) {
            newGame(); 
            return true; 
        } else if (itemId == id.demoMode) {
@@ -484,6 +528,7 @@ public class uTurn extends Activity
                     break;
                 }
 
+                hintUntil = 0;
                 touchPointInitialX = touchX;
                 touchPointInitialY = touchY;
                 initialDownTime = event.getDownTime();
@@ -523,6 +568,7 @@ public class uTurn extends Activity
                     if(droppedOn >= 0 && droppedOn != initialTileId)
                     {
                         swapTileWorldPositions(initialTileId, droppedOn);
+                        history.record(MoveHistory.Move.swap(initialTileId, droppedOn));
                         if(soundOn)
                             playSound(SOUND_MOVE);
                     }
@@ -530,6 +576,7 @@ public class uTurn extends Activity
                     {
                         // a tap or press without dragging rotates the tile
                         direction = accumulatedDownTime < ROTATION_HOLD_THRESHOLD_MS ? 1 : -1;
+                        history.record(MoveHistory.Move.rotate(initialTileId, direction));
                         checkAndRotate(initialTileId, initialTileId);
                         direction = 0;
                     }
@@ -708,6 +755,9 @@ public class uTurn extends Activity
             // Determine number of rows, columns and colours to work with.
             firstTimeDrawn = true;
             applyLevelRules();
+            history.clear();
+            hintUntil = 0;
+            hintsUsed = 0;
             
             // Tiles should remain the same size regardless of device orientation
             int scale = fitScale();
@@ -954,9 +1004,14 @@ public class uTurn extends Activity
 
 
             firstTimeDrawn = false;
-            
+
+            long now = SystemClock.uptimeMillis();
+            boolean hintShowing = now < hintUntil;
+            if(hintShowing)
+                drawHint(canvas, now);
+
             // invalidate so OnDraw recalled; idle redraws are throttled rather than blocking the UI thread
-            if(conserveBattery && !demoOn)
+            if(conserveBattery && !demoOn && !hintShowing)
                 postInvalidateDelayed(500);
             else
                 invalidate();
@@ -981,6 +1036,94 @@ public class uTurn extends Activity
         }
         
         
+        /** Apply a move (swap two tiles, or turn one) without recording it. */
+        private void applyMove(MoveHistory.Move move) {
+            if (move.type == MoveHistory.Type.SWAP) {
+                swapTileWorldPositions(move.tile, move.otherTile);
+                if (soundOn) {
+                    playSound(SOUND_MOVE);
+                }
+            } else {
+                int direction = Integer.signum(move.turns);
+                for (int turn = 0; turn < Math.abs(move.turns); turn++) {
+                    rotateColours(move.tile, direction);
+                }
+                if (soundOn) {
+                    playSound(SOUND_ROTATE);
+                }
+            }
+            hintUntil = 0;
+            conserveBattery = false;
+            invalidate();
+        }
+
+        private void undoMove() {
+            MoveHistory.Move move = gameIdle() ? history.undo() : null;
+            if (move != null) {
+                applyMove(move);
+            }
+        }
+
+        private void redoMove() {
+            MoveHistory.Move move = gameIdle() ? history.redo() : null;
+            if (move != null) {
+                applyMove(move);
+                checkForLevelComplete();
+            }
+        }
+
+        /** Highlight the next useful move for a few seconds. */
+        private void showHint() {
+            if (!gameIdle()) {
+                return;
+            }
+            int cellCount = tilesPerRow * tilesPerCol;
+            int[][] colours = new int[cellCount][];
+            int[] cellOfTile = new int[cellCount];
+            int scale = Tile.getSegmentScale();
+            for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
+                colours[tileIndex] = currentColours(tileIndex);
+                int column = (int) Math.round((tiles[tileIndex].getWorldSpaceX() - scale / 2f) / scale);
+                int row = (int) Math.round((tiles[tileIndex].getWorldSpaceY() - scale / 2f) / scale);
+                cellOfTile[tileIndex] = row * tilesPerRow + column;
+            }
+            HintFinder.Hint hint = HintFinder.find(colours, cellOfTile, tilesPerCol, tilesPerRow, BoardRules.OUTSIDE_EDGE);
+            if (hint == null) {
+                Toast.makeText(uTurn.this, R.string.hint_none, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            hintsUsed++;
+            hintFromCell = hint.fromCell;
+            hintToCell = hint.toCell;
+            hintUntil = SystemClock.uptimeMillis() + 5000;
+            conserveBattery = false;
+            Log.i(TAG, "hint " + hintsUsed + ": cell " + hint.fromCell + " -> " + hint.toCell + ", turns " + hint.turns);
+            int message = hint.rotateOnly() ? R.string.hint_turn
+                    : hint.turns == 0 ? R.string.hint_move : R.string.hint_move_and_turn;
+            Toast.makeText(uTurn.this, message, Toast.LENGTH_LONG).show();
+            invalidate();
+        }
+
+        private void drawHint(Canvas canvas, long now) {
+            int scale = Tile.getSegmentScale();
+            int alpha = (int) (150 + 100 * Math.sin(now / 160.0));
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Math.max(4, scale / 18f));
+            paint.setColor(Color.argb(alpha, 255, 140, 0));
+            paint.setPathEffect(null);
+            int[] cells = hintFromCell == hintToCell ? new int[] {hintFromCell} : new int[] {hintFromCell, hintToCell};
+            for (int index = 0; index < cells.length; index++) {
+                if (index == 1) {
+                    paint.setPathEffect(new android.graphics.DashPathEffect(new float[] {scale / 8f, scale / 10f}, 0));
+                }
+                float left = (cells[index] % tilesPerRow) * scale;
+                float top = (cells[index] / tilesPerRow) * scale;
+                float inset = paint.getStrokeWidth() / 2;
+                canvas.drawRect(left + inset, top + inset, left + scale - inset, top + scale - inset, paint);
+            }
+            paint.setPathEffect(null);
+        }
+
         /*
          * DEMO MODE
          * Solves the board from its current state using DemoSolver: corners first (each turned so its outside edges face
@@ -1003,6 +1146,8 @@ public class uTurn extends Activity
             if (tiles[0] == null || levelAdvancePending) {
                 return;
             }
+            history.clear();   // demo moves are not undoable
+            hintUntil = 0;
             int cellCount = tilesPerRow * tilesPerCol;
             int[][] colourSets = new int[cellCount][];
             for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {

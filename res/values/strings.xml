@@ -14,4 +14,11 @@
     <string name="music_soothing">Soothing</string>
     <string name="music_focus">Focus</string>
     <string name="music_intense">Intense</string>
+    <string name="menu_undo">Undo</string>
+    <string name="menu_redo">Redo</string>
+    <string name="menu_hint">Hint</string>
+    <string name="hint_turn">Turn the highlighted tile</string>
+    <string name="hint_move">Drag the highlighted tile to the dashed spot</string>
+    <string name="hint_move_and_turn">Drag the highlighted tile to the dashed spot, then turn it</string>
+    <string name="hint_none">No hint needed</string>
 </resources>

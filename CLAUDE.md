@@ -149,6 +149,20 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - NOT verified by ear (emulator is `-no-audio`). Local-only previews to listen to on a PC: `music-preview/*.wav` (excluded from git).
 - Tests: 29 in uTurn.
 
+### Checkpoint 11 (undo / redo / hints)
+- `MoveHistory` (pure): undo/redo stacks of SWAP(tileA,tileB) and ROTATE(tile,turns); a new move forgets the redo stack;
+  cleared on new board/level and when demo starts (demo moves are not undoable, and undo is only valid in strict order).
+- `HintFinder` (pure) + `DemoSolver.solve(..., cellOfTile)`: the search tries each tile's current cell and orientation first,
+  so correct placements are kept; the hint is the first tile (corners -> edges -> inner) that is not right, as
+  fromCell -> toCell plus clockwise turns. Look-alike tiles are handled by comparing colours, not tile ids.
+  Simulation test: following hints solves scrambled boards from 3x3 to 8x6 within 2n moves.
+- UI: menu items Undo / Redo / Hint (enabled only when the game is idle - not during demo, drag or level-complete pause).
+  Hint = orange outline on the tile + dashed outline on the target cell for 5 s, toast text, cleared by touch.
+  `hintsUsed` counter (per level) is logged and ready for star ratings.
+- Verified on API 37: undo x2 restores the board pixel-exactly, redo replays; solving level 1 by ONLY pressing Hint and doing the
+  gestures it describes took 9 hints and completed the level.
+- Tests: 35 in uTurn.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
