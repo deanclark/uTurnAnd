@@ -20,7 +20,7 @@ Items already done are marked ✅.
 
 | Feature | Why it helps | Effort |
 |---|---|---|
-| **Optional background music** with moods: *Soothing*, *Focus*, *Intense*, plus Off; volume slider; pause when the app is minimised; respect system "do not disturb" | Sets the mood; players choose their own pace | M |
+| ✅ **Optional background music** with moods *Soothing*, *Focus*, *Intense* and Off, generated in code (no licensed audio); pauses when minimised and respects other apps' audio. Still to add: volume slider, more tracks per mood | Sets the mood; players choose their own pace | M |
 | **Licence-free sources** to check before bundling: FreePD (public domain / CC0), OpenGameArt (filter to CC0), Pixabay Music (own licence, no attribution), Kevin MacLeod / incompetech (CC BY, needs attribution on an About screen). Keep a `CREDITS` file with source, licence and link for every track | Avoids licence problems at release | S |
 | **Richer effects**: a soft chime when an edge matches, a satisfying click when a tile locks, a short fanfare on level complete; separate sound and music switches | Audio feedback is a big part of "feel" | S |
 | **Haptics** for rotate, swap and win (off by default for battery, optional) | Cheap tactile polish | S |

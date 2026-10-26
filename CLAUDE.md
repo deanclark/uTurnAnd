@@ -139,6 +139,16 @@ current thinking, decisions and next steps so work can restart exactly where it 
   switch to Vivid, force-stop + relaunch keeps Vivid, switch back keeps the same board.
 - `TilePrintableAndroid.outlineColor` is set per frame from the theme. Tests: 24 in uTurn.
 
+### Checkpoint 10 (background music)
+- Music is GENERATED IN CODE (`MusicSynth`: 8-bar loops, pad + arpeggio + bass + drums per mood) so there are no audio files
+  and no licences to track. Moods: Soothing (58 bpm, no drums), Focus (84 bpm), Intense (132 bpm, kick + driving bass).
+  Tests: audible, unclipped, 12-40 s, silent loop seam, busier = more onsets/s (1.1 / 2.4 / 6.7), repeatable.
+- `MusicPlayer` (AudioTrack MODE_STATIC looped, rendered on a background thread, cached per mood; audio focus: pauses on loss,
+  ducks on transient-duck). Activity: onResume/onPause/onDestroy. Settings dialog -> Colour theme / Background music
+  (Off default, pref `music`). Verified on API 37 by log: plays when visible, stops on Home, resumes, setting survives restart.
+- NOT verified by ear (emulator is `-no-audio`). Local-only previews to listen to on a PC: `music-preview/*.wav` (excluded from git).
+- Tests: 29 in uTurn.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).

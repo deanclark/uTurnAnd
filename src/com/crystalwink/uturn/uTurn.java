@@ -80,6 +80,9 @@ public class uTurn extends Activity
     private static final String PREF_BOARD = "board";
     private static final String PREF_SOUND = "sound";
     private static final String PREF_THEME = "theme";
+    private static final String PREF_MUSIC = "music";
+    private MusicPlayer musicPlayer;
+    private int musicSetting;   // 0 off, 1 soothing, 2 focus, 3 intense
     private GameState restoredBoard;   // board from a previous run of the app, used once by the next init()
     private final Handler gameHandler = new Handler(Looper.getMainLooper());
     private Runnable advanceLevelTask;
@@ -271,8 +274,23 @@ public class uTurn extends Activity
        }
    }
 
-   /** Settings dialog: colour theme. More options (music, haptics...) belong here, see FEATURES.md. */
+   /** Settings dialog. More options (haptics, hints...) belong here, see FEATURES.md. */
    private void settings() {
+       String[] items = {getString(R.string.settings_theme_title), getString(R.string.settings_music_title)};
+       new android.app.AlertDialog.Builder(this)
+               .setTitle(R.string.settings_title)
+               .setItems(items, (dialog, which) -> {
+                   if (which == 0) {
+                       chooseTheme();
+                   } else {
+                       chooseMusic();
+                   }
+               })
+               .setNegativeButton(android.R.string.cancel, null)
+               .show();
+   }
+
+   private void chooseTheme() {
        String[] names = {getString(R.string.theme_soft), getString(R.string.theme_vivid)};
        new android.app.AlertDialog.Builder(this)
                .setTitle(R.string.settings_theme_title)
@@ -283,8 +301,23 @@ public class uTurn extends Activity
                })
                .setNegativeButton(android.R.string.cancel, null)
                .show();
-  }
-   
+   }
+
+   private void chooseMusic() {
+       String[] names = {getString(R.string.music_off), getString(R.string.music_soothing),
+               getString(R.string.music_focus), getString(R.string.music_intense)};
+       new android.app.AlertDialog.Builder(this)
+               .setTitle(R.string.settings_music_title)
+               .setSingleChoiceItems(names, musicSetting, (dialog, which) -> {
+                   musicSetting = which;
+                   musicPlayer.setMood(MusicSynth.fromSetting(which));
+                   saveProgress(true);
+                   dialog.dismiss();
+               })
+               .setNegativeButton(android.R.string.cancel, null)
+               .show();
+   }
+
    /* Handles item selections */ 
    public boolean onOptionsItemSelected(MenuItem item) { 
        int itemId = item.getItemId();
@@ -328,6 +361,8 @@ public class uTurn extends Activity
         contextStored = this;
         loadProgress();
         initSounds();
+        musicPlayer = new MusicPlayer(this);
+        musicPlayer.setMood(MusicSynth.fromSetting(musicSetting));
 
         uturnview = new UTurnView(this);
         
@@ -360,6 +395,7 @@ public class uTurn extends Activity
         editor.putInt(PREF_LEVEL, difficultyLevel);
         editor.putBoolean(PREF_SOUND, soundOn);
         editor.putInt(PREF_THEME, theme);
+        editor.putInt(PREF_MUSIC, musicSetting);
         if (includeBoard && uturnview != null && !levelAdvancePending && tiles[0] != null) {
             int cellCount = tilesPerRow * tilesPerCol;
             int[] cellOfTile = new int[cellCount];
@@ -383,6 +419,7 @@ public class uTurn extends Activity
         difficultyLevel = Math.max(1, prefs.getInt(PREF_LEVEL, 1));
         soundOn = prefs.getBoolean(PREF_SOUND, false);
         applyTheme(prefs.getInt(PREF_THEME, Palettes.SOFT));
+        musicSetting = prefs.getInt(PREF_MUSIC, 0);
         GameState state = GameState.decode(prefs.getString(PREF_BOARD, null));
         LevelRules rules = LevelRules.forLevel(difficultyLevel);
         restoredBoard = state != null && state.level == difficultyLevel
@@ -390,7 +427,18 @@ public class uTurn extends Activity
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (musicPlayer != null) {
+            musicPlayer.resume();
+        }
+    }
+
+    @Override
     protected void onPause() {
+        if (musicPlayer != null) {
+            musicPlayer.pause();
+        }
         if (uturnview != null) {
             uturnview.stopForPause();
         }
@@ -400,6 +448,9 @@ public class uTurn extends Activity
 
     @Override
     protected void onDestroy() {
+        if (musicPlayer != null) {
+            musicPlayer.release();
+        }
         if (advanceLevelTask != null) {
             gameHandler.removeCallbacks(advanceLevelTask);
         }
