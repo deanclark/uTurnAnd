@@ -7,6 +7,8 @@
           android:title="@string/menu_redo" />
     <item android:id="@+id/hint"
           android:title="@string/menu_hint" />
+    <item android:id="@+id/levels"
+          android:title="@string/menu_levels" />
     <item android:id="@+id/new_game" 
           android:title="@string/menu_new_game" /> 
     <item android:id="@+id/demoMode" 

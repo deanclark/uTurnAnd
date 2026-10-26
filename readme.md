@@ -28,6 +28,7 @@ Controls
 * There is no level cap: the board grows to 6x8 and later levels use fewer colours.
 * Undo and Redo (menu) step back and forward through your moves on the current level.
 * Hint (menu) outlines the next tile to move and a dashed outline shows where it goes; touch the board to dismiss it.
+* Levels (menu) replays any level reached. Each level earns up to 3 stars: 3 for no hints, 2 for one or two hints, 1 for more hints or watching the demo; your best is kept.
 * The options menu (action bar) has New Game, Demo Mode, Sound and Settings.
 * Demo Mode solves the board for you: corners first (rotated into place), then the edge tiles, then it verifies the border, then the inner tiles. Touch the screen to stop it.
 

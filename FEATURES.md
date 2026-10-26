@@ -30,8 +30,7 @@ Items already done are marked ✅.
 | Feature | Why it helps | Effort |
 |---|---|---|
 | ✅ **Unlimited levels** (board grows to 6x8, then fewer colours make it harder) and **progress saved** across minimise, restart and rotation | Done | - |
-| **Level map / level select**: jump back to any level already reached | Lets players revisit favourites and skip ahead after a break | M |
-| **Stars per level** (moves, time, hints used) and a best-score record | Gives a reason to replay | M |
+| ✅ **Level select** (menu > Levels: replay any level reached) and **stars per level** (3 = no hints, 2 = 1-2 hints, 1 = 3+ hints or demo; best kept). Still to add: a graphical level map, move/time based stars | Done | - |
 | ✅ **Hints**: outline the next tile to move and where it goes (never undoes the player's correct placements). Still to add: limited free hints earned by playing, a hint counter in the results | Keeps stuck players from quitting | S |
 | ✅ **Undo / redo** of moves (unlimited, per level) | Removes fear of experimenting | S |
 | **Themed chapters** (every 10 levels a new picture pack, music mood and background) | Gives levels identity and a sense of a journey | M |

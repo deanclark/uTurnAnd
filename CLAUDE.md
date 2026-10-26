@@ -163,6 +163,15 @@ current thinking, decisions and next steps so work can restart exactly where it 
   gestures it describes took 9 hints and completed the level.
 - Tests: 35 in uTurn.
 
+### Checkpoint 12 (level select / stars)
+- `LevelProgress` (pure): best stars per level, stored as "3,0,2" in pref `stars`; `starsFor(hints, demoUsed)`:
+  0 hints = 3, 1-2 = 2, 3+ or demo = 1; only improvements kept; `highestUnlocked(current)` = last completed + 1 (or the current
+  level, so players saved before stars existed keep access).
+- UI: menu Levels opens a single-choice list "Level n ★★☆ cols x rows" up to the highest unlocked; picking one calls
+  `startLevel` (cancels pending advance/demo, fresh board, saves). Level-complete toast shows the stars. `demoUsed` per level.
+- Verified on API 37: demo-solved level 1 -> "1 stars", dialog shows ★☆☆ and Level 2 unlocked.
+- Tests: 39 in uTurn.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).

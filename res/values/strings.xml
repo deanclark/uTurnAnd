@@ -21,4 +21,7 @@
     <string name="hint_move">Drag the highlighted tile to the dashed spot</string>
     <string name="hint_move_and_turn">Drag the highlighted tile to the dashed spot, then turn it</string>
     <string name="hint_none">No hint needed</string>
+    <string name="menu_levels">Levels</string>
+    <string name="level_select_title">Levels  (%1$d stars)</string>
+    <string name="level_item">Level %1$d   %2$s   %3$d×%4$d</string>
 </resources>

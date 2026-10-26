@@ -81,9 +81,12 @@ public class uTurn extends Activity
     private static final String PREF_SOUND = "sound";
     private static final String PREF_THEME = "theme";
     private static final String PREF_MUSIC = "music";
+    private static final String PREF_STARS = "stars";
     private MusicPlayer musicPlayer;
     private final MoveHistory history = new MoveHistory();
-    private int hintsUsed;   // this level; the basis for star ratings later
+    private int hintsUsed;   // this level; the basis for star ratings
+    private boolean demoUsed;   // the demo played this level, so it earns the minimum rating
+    private LevelProgress levelProgress = new LevelProgress();
     private int musicSetting;   // 0 off, 1 soothing, 2 focus, 3 intense
     private GameState restoredBoard;   // board from a previous run of the app, used once by the next init()
     private final Handler gameHandler = new Handler(Looper.getMainLooper());
@@ -200,8 +203,10 @@ public class uTurn extends Activity
        }
 
        levelAdvancePending = true;
-       Log.i(TAG, "level " + difficultyLevel + " complete (" + tilesPerRow + "x" + tilesPerCol + ")");
-       Toast.makeText(this, "Level " + difficultyLevel + " complete!", Toast.LENGTH_LONG).show();
+       int stars = LevelProgress.starsFor(hintsUsed, demoUsed);
+       levelProgress.record(difficultyLevel, stars);
+       Log.i(TAG, "level " + difficultyLevel + " complete (" + tilesPerRow + "x" + tilesPerCol + "), " + stars + " stars");
+       Toast.makeText(this, "Level " + difficultyLevel + " complete!  " + starText(stars, false), Toast.LENGTH_LONG).show();
        advanceLevelTask = () -> {
            difficultyLevel = difficultyLevel + 1;
            restoredBoard = null;
@@ -212,6 +217,51 @@ public class uTurn extends Activity
            Toast.makeText(this, "Level " + difficultyLevel, Toast.LENGTH_SHORT).show();
        };
        gameHandler.postDelayed(advanceLevelTask, 3000);
+   }
+
+   private static String starText(int stars, boolean padEmpty) {
+       StringBuilder text = new StringBuilder();
+       for (int star = 1; star <= LevelProgress.MAX_STARS; star++) {
+           if (star <= stars) {
+               text.append('★');
+           } else if (padEmpty) {
+               text.append('☆');
+           }
+       }
+       return text.toString();
+   }
+
+   /** Replay any level reached so far; a level's best rating is kept. */
+   private void chooseLevel() {
+       int unlocked = levelProgress.highestUnlocked(difficultyLevel);
+       String[] items = new String[unlocked];
+       for (int level = 1; level <= unlocked; level++) {
+           LevelRules rules = LevelRules.forLevel(level);
+           items[level - 1] = getString(R.string.level_item, level, starText(levelProgress.stars(level), true),
+                   rules.columns, rules.rows);
+       }
+       new android.app.AlertDialog.Builder(this)
+               .setTitle(getString(R.string.level_select_title, levelProgress.totalStars()))
+               .setSingleChoiceItems(items, difficultyLevel - 1, (dialog, which) -> {
+                   dialog.dismiss();
+                   startLevel(which + 1);
+               })
+               .setNegativeButton(android.R.string.cancel, null)
+               .show();
+   }
+
+   private void startLevel(int level) {
+       if (advanceLevelTask != null) {
+           gameHandler.removeCallbacks(advanceLevelTask);
+           advanceLevelTask = null;
+       }
+       levelAdvancePending = false;
+       uturnview.demoStop();
+       difficultyLevel = level;
+       restoredBoard = null;
+       uturnview.init();
+       saveProgress(true);
+       Toast.makeText(this, "Level " + difficultyLevel, Toast.LENGTH_SHORT).show();
    }
 
    private boolean isBoardSolved() {
@@ -279,6 +329,7 @@ public class uTurn extends Activity
        menu.findItem(R.id.undo).setEnabled(idle && history.canUndo());
        menu.findItem(R.id.redo).setEnabled(idle && history.canRedo());
        menu.findItem(R.id.hint).setEnabled(idle);
+       menu.findItem(R.id.levels).setEnabled(uturnview != null && !levelAdvancePending);
        return super.onPrepareOptionsMenu(menu);
    }
 
@@ -365,6 +416,9 @@ public class uTurn extends Activity
        } else if (itemId == id.hint) {
            showHint();
            return true;
+       } else if (itemId == id.levels) {
+           chooseLevel();
+           return true;
        } else if (itemId == id.new_game) {
            newGame(); 
            return true; 
@@ -440,6 +494,7 @@ public class uTurn extends Activity
         editor.putBoolean(PREF_SOUND, soundOn);
         editor.putInt(PREF_THEME, theme);
         editor.putInt(PREF_MUSIC, musicSetting);
+        editor.putString(PREF_STARS, levelProgress.encode());
         if (includeBoard && uturnview != null && !levelAdvancePending && tiles[0] != null) {
             int cellCount = tilesPerRow * tilesPerCol;
             int[] cellOfTile = new int[cellCount];
@@ -464,6 +519,7 @@ public class uTurn extends Activity
         soundOn = prefs.getBoolean(PREF_SOUND, false);
         applyTheme(prefs.getInt(PREF_THEME, Palettes.SOFT));
         musicSetting = prefs.getInt(PREF_MUSIC, 0);
+        levelProgress = LevelProgress.decode(prefs.getString(PREF_STARS, null));
         GameState state = GameState.decode(prefs.getString(PREF_BOARD, null));
         LevelRules rules = LevelRules.forLevel(difficultyLevel);
         restoredBoard = state != null && state.level == difficultyLevel
@@ -758,6 +814,7 @@ public class uTurn extends Activity
             history.clear();
             hintUntil = 0;
             hintsUsed = 0;
+            demoUsed = false;
             
             // Tiles should remain the same size regardless of device orientation
             int scale = fitScale();
@@ -1164,6 +1221,7 @@ public class uTurn extends Activity
             demoPhase = DEMO_NEXT;
             demoNextAt = SystemClock.uptimeMillis() + 800;
             demoOn = true;
+            demoUsed = true;
             conserveBattery = false;
             Toast.makeText(uTurn.this, "Demo On", Toast.LENGTH_SHORT).show();
             invalidate();
