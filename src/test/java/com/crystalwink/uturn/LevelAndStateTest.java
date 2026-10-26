@@ -41,7 +41,8 @@ public class LevelAndStateTest {
     public void demoSolverSolvesEveryLevelUpToFifty() {
         for (int level = 1; level <= 50; level++) {
             LevelRules rules = LevelRules.forLevel(level);
-            int[][] tiles = BoardRules.createSolvedBoard(rules.rows, rules.columns, BoardRules.OUTSIDE_EDGE, rules.colours);
+            int[][] tiles = BoardRules.createRandomSolvedBoard(rules.rows, rules.columns, BoardRules.OUTSIDE_EDGE,
+                    rules.colours, level, LevelRules.AVOID_DUPLICATE_TILES);
             for (int tile = 0; tile < tiles.length; tile++) {
                 tiles[tile] = DemoSolver.rotate(tiles[tile], (tile * 7 + level) % 4);
             }

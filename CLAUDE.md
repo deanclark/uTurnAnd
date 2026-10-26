@@ -126,8 +126,9 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Edge colouring options for the solved board: `BoardRules.createSolvedBoard` (repeating pattern, current default) vs
   `createRandomSolvedBoard(..., seed, avoidDuplicates)`. Finding: the repeating pattern gives 20 duplicate tiles on a 6x8/4-colour
   board; random gives ~4, best-effort duplicate-free ~2 (zero is impossible with 4 colours). With 7 colours a 3x3 is duplicate-free.
-  Comparison image: `doc-files/edge-colour-options.png`. **DECISION PENDING (user)**: set `LevelRules.RANDOM_EDGES` (and
-  `AVOID_DUPLICATE_TILES`) once chosen; currently RANDOM_EDGES=false.
+  Comparison image: `doc-files/edge-colour-options.png`. **DECIDED: option C** - `LevelRules.RANDOM_EDGES=true`,
+  `AVOID_DUPLICATE_TILES=true`. Verified on API 37: demo solved levels 1-9 (19/22/31/37/46/59/62/81/88 s) with random boards;
+  DemoSolver unit test now runs on random boards up to level 50.
 - Tests: 20 in uTurn.
 
 ## Obsolete / to-modernise list (Android 12+)

@@ -28,7 +28,7 @@ public final class LevelRules {
      * How the solved board's interior edges are coloured. false = the original repeating pattern (many duplicate
      * tiles on big boards); true = random colours from a seed, see BoardRules.createRandomSolvedBoard.
      */
-    public static final boolean RANDOM_EDGES = false;
+    public static final boolean RANDOM_EDGES = true;
     public static final boolean AVOID_DUPLICATE_TILES = true;
 
     public final int level;
