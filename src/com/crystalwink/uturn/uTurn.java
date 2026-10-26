@@ -145,6 +145,7 @@ public class uTurn extends Activity
                 .setAudioAttributes(attributes)
                 .build(); 
         soundPoolMap = new HashMap<Integer, Integer>(); 
+        soundPool.setOnLoadCompleteListener((pool, sampleId, status) -> Log.i(TAG, "sound sample " + sampleId + " loaded, status " + status));
 //        soundPoolMap.put(SOUND_BACKGROUND, soundPool.load(contextStored, R.raw.background, 1)); 
 //        soundPoolMap.put(SOUND_CLICK, soundPool.load(contextStored, R.raw.click, 1)); 
         soundPoolMap.put(SOUND_ROTATE, soundPool.load(contextStored, R.raw.rotate, 1)); 
@@ -155,7 +156,8 @@ public class uTurn extends Activity
 	   if(sound == SOUND_ROTATE || sound == SOUND_MOVE)
 	   {
 		    // SoundPool volume is 0..1; the device media volume is applied by the stream itself.
-		    soundPool.play(soundPoolMap.get(sound), 1f, 1f, 1, 0, 1f); 
+		    int streamId = soundPool.play(soundPoolMap.get(sound), 1f, 1f, 1, 0, 1f);
+		    Log.i(TAG, "playSound " + (sound == SOUND_ROTATE ? "rotate" : "move") + " stream " + streamId);
 	   }
    } 
 
@@ -182,6 +184,7 @@ public class uTurn extends Activity
        }
 
        levelAdvancePending = true;
+       Log.i(TAG, "level " + difficultyLevel + " complete (" + tilesPerRow + "x" + tilesPerCol + ")");
        Toast.makeText(this, "Level " + difficultyLevel + " complete!", Toast.LENGTH_LONG).show();
        advanceLevelTask = () -> {
            difficultyLevel = difficultyLevel >= maxDifficultyLevel ? 1 : difficultyLevel + 1;
@@ -877,6 +880,7 @@ public class uTurn extends Activity
                 Toast.makeText(uTurn.this, "Demo cannot solve this board", Toast.LENGTH_SHORT).show();
                 return;
             }
+            Log.i(TAG, "demo plan for " + tilesPerRow + "x" + tilesPerCol + ": " + demoPlan.size() + " placements");
             demoIndex = 0;
             demoBorderVerified = false;
             demoPhase = DEMO_NEXT;

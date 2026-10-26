@@ -101,6 +101,13 @@ current thinking, decisions and next steps so work can restart exactly where it 
   real win on a device).
 - Tests: 13 in uTurn (BoardRulesTest 7, DemoSolverTest 6).
 
+### Checkpoint 6 (all levels + sound on device)
+- Scripted run on the API 37 emulator (sound on, Demo Mode started each level via the menu): every level 1-6 solved and
+  "level N complete" logged (3x3 18s, 3x4 25s, 4x4 28s, 4x5 34s, 5x5 40s, 5x6 53s; plans of 9/12/16/20/25/30 placements).
+- Sound: both samples load with status 0; 240 `SoundPool.play` calls during the run all returned a non-zero stream id.
+  The emulator runs with `-no-audio`, so audible output is NOT confirmed - listen on a real device.
+- uTurn.java now logs (tag `uTurn`) sound load/play, demo plan size and level completion.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
