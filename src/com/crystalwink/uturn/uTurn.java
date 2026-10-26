@@ -360,9 +360,9 @@ public class uTurn extends Activity
 		}
 
 		public boolean onTouchEvent(MotionEvent event) {
-	        if((debugMask & (debugMaskAll | debugMaskStartEnd)) > 0)
-	        	Log.v(TAG, "onTouchEvent() - Start");
-
+            if((debugMask & (debugMaskAll | debugMaskStartEnd)) > 0) {
+                Log.v(TAG, "onTouchEvent() - Start");
+            }
             switch(event.getAction())
             {
             case MotionEvent.ACTION_DOWN: // event.ACTION_DOWN
