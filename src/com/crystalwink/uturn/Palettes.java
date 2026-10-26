@@ -7,7 +7,9 @@ package com.crystalwink.uturn;
 public final class Palettes {
     public static final int SOFT = 0;
     public static final int VIVID = 1;
-    public static final int COUNT = 2;
+    /** Soft colours plus a distinct symbol on every coloured edge, so colours never have to be told apart by hue alone. */
+    public static final int PATTERNS = 2;
+    public static final int COUNT = 3;
 
     private static final int[] SOFT_EDGES = {
         0xFF5F6B73,   // outside: slate
@@ -37,11 +39,16 @@ public final class Palettes {
     }
 
     public static int[] edges(int theme) {
-        return (theme == VIVID ? VIVID_EDGES : SOFT_EDGES).clone();
+        return (theme == VIVID ? VIVID_EDGES : SOFT_EDGES).clone();   // PATTERNS shares the soft colours
     }
 
     public static int background(int theme) {
         return theme == VIVID ? 0xFFFFFFFF : 0xFFF6F3EE;
+    }
+
+    /** True when edges carry a symbol (indexed by edge colour; the outside edge has none). */
+    public static boolean hasSymbols(int theme) {
+        return theme == PATTERNS;
     }
 
     /** Outline colour drawn between segments. */
@@ -51,6 +58,6 @@ public final class Palettes {
 
     /** Valid theme number from a stored value. */
     public static int sanitise(int theme) {
-        return theme == VIVID ? VIVID : SOFT;
+        return theme == VIVID || theme == PATTERNS ? theme : SOFT;
     }
 }

@@ -10,7 +10,7 @@ Items already done are marked ✅.
 |---|---|---|
 | ✅ **Theme picker**: Soft (default) and Vivid / high contrast, in a Settings dialog. Still to add: an "earth" palette, a dark mode, a colour-blind-safe palette | The five saturated colours were tiring to look at; a pleasant default is the biggest first-impression win | M |
 | **High-contrast / colour-blind-safe theme** (keep the current vivid colours here, plus patterns) | Needed for accessibility; what the current palette is good for | S |
-| **Shapes or patterns instead of colours**: each edge colour becomes a distinct motif (dots, stripes, waves, triangles, leaves) | Matching by shape works for colour-blind players and looks more designed | M |
+| ✅ **Patterns theme**: every coloured edge also carries a symbol (dot, square, diamond, plus, ring, cross, hollow square, two dots). Still to add: richer motifs (stripes, waves, leaves) | Matching by shape works for colour-blind players | - |
 | **Picture tiles**: slice a photo or artwork into tiles; edges match by image content instead of colour (curated packs: landscapes, mosaics, patterns, the player's own photo) | Most shareable look; the player's own photo is a strong personal hook | L |
 | **Tile polish**: rounded or bevelled tiles, soft shadow while dragging, snap animation on drop, a gentle glow when an edge matches | Makes every move feel good | S |
 | **Landscape layout**: use the extra width (side panel for level, timer, hints) instead of a smaller centred board | Rotation already works but wastes space | M |

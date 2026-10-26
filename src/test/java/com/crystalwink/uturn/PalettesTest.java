@@ -1,6 +1,8 @@
 package com.crystalwink.uturn;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -58,5 +60,14 @@ public class PalettesTest {
         assertEquals(Palettes.SOFT, Palettes.sanitise(7));
         assertEquals(Palettes.SOFT, Palettes.sanitise(-1));
         assertEquals(Palettes.VIVID, Palettes.sanitise(Palettes.VIVID));
+    }
+
+    @Test
+    public void onlyThePatternsThemeDrawsSymbolsAndKeepsTheSoftColours() {
+        assertTrue(Palettes.hasSymbols(Palettes.PATTERNS));
+        assertFalse(Palettes.hasSymbols(Palettes.SOFT));
+        assertFalse(Palettes.hasSymbols(Palettes.VIVID));
+        assertArrayEquals(Palettes.edges(Palettes.SOFT), Palettes.edges(Palettes.PATTERNS));
+        assertEquals(Palettes.PATTERNS, Palettes.sanitise(Palettes.PATTERNS));
     }
 }

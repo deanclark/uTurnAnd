@@ -172,6 +172,13 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Verified on API 37: demo-solved level 1 -> "1 stars", dialog shows ★☆☆ and Level 2 unlocked.
 - Tests: 39 in uTurn.
 
+### Checkpoint 13 (patterns theme)
+- `Palettes.PATTERNS` (theme 2, `COUNT` = 3): the Soft colours plus a symbol per edge colour index, drawn at each segment's centroid by
+  `TilePrintableAndroid.drawSymbol` (flag `showSymbols`, set per frame from `Palettes.hasSymbols(theme)`). Symbols 1..8 = dot, square,
+  diamond, plus, ring, cross, hollow square, two dots; outside edge (0) has none; symbols are upright whatever the tile's turn.
+- Theme dialog has a third entry "Patterns (colour-blind friendly)". Verified on API 37 (3x3 board shows all symbols).
+- Tests: 40 in uTurn.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).

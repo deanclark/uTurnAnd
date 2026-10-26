@@ -26,7 +26,11 @@ public class TilePrintableAndroid extends Tile {
     /** Colour of the lines between segments (the theme sets this before drawing). */
     public int outlineColor = Color.BLACK;
 
+    /** When set, every coloured edge also shows a symbol that identifies its colour index. */
+    public boolean showSymbols = false;
+
     private final Path segmentPath = new Path();
+    private final Path symbolPath = new Path();
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public TilePrintableAndroid(int tileId, int colours[], int scale) {
@@ -115,6 +119,11 @@ public class TilePrintableAndroid extends Tile {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setColor(locked() ? Color.RED : outlineColor);
                 canvas.drawPath(segmentPath, paint);
+                if (showSymbols && edgeColorId > 0) {
+                    float sx = (points.x[0] + points.x[1] + points.x[2]) / 3f;
+                    float sy = (points.y[0] + points.y[1] + points.y[2]) / 3f;
+                    drawSymbol(canvas, edgeColorId, centreX + sx, centreY + sy, Tile.getSegmentScale() * 0.085f);
+                }
             }
         }
 
@@ -127,6 +136,51 @@ public class TilePrintableAndroid extends Tile {
             paint.setStrokeWidth(2);
         }
         moved(false);
+    }
+
+    /** Symbols 1..8, all drawn upright so they read the same however the tile is turned. */
+    private void drawSymbol(Canvas canvas, int index, float x, float y, float r) {
+        int ink = (outlineColor & 0x00FFFFFF) | 0xE6000000;
+        paint.setColor(ink);
+        paint.setStrokeWidth(Math.max(2f, r * 0.4f));
+        boolean filled = index == 1 || index == 2 || index == 3 || index == 8;
+        paint.setStyle(filled ? Paint.Style.FILL : Paint.Style.STROKE);
+        switch (index) {
+            case 1:   // dot
+                canvas.drawCircle(x, y, r, paint);
+                break;
+            case 2:   // square
+                canvas.drawRect(x - r, y - r, x + r, y + r, paint);
+                break;
+            case 3:   // diamond
+                symbolPath.reset();
+                symbolPath.moveTo(x, y - r * 1.3f);
+                symbolPath.lineTo(x + r * 1.3f, y);
+                symbolPath.lineTo(x, y + r * 1.3f);
+                symbolPath.lineTo(x - r * 1.3f, y);
+                symbolPath.close();
+                canvas.drawPath(symbolPath, paint);
+                break;
+            case 4:   // plus
+                canvas.drawLine(x - r, y, x + r, y, paint);
+                canvas.drawLine(x, y - r, x, y + r, paint);
+                break;
+            case 5:   // ring
+                canvas.drawCircle(x, y, r, paint);
+                break;
+            case 6:   // cross
+                canvas.drawLine(x - r, y - r, x + r, y + r, paint);
+                canvas.drawLine(x - r, y + r, x + r, y - r, paint);
+                break;
+            case 7:   // hollow square
+                canvas.drawRect(x - r, y - r, x + r, y + r, paint);
+                break;
+            default:   // two dots
+                canvas.drawCircle(x - r * 0.9f, y, r * 0.55f, paint);
+                canvas.drawCircle(x + r * 0.9f, y, r * 0.55f, paint);
+                break;
+        }
+        paint.setStrokeWidth(2);
     }
 
     private static final class Segment {

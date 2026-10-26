@@ -24,4 +24,5 @@
     <string name="menu_levels">Levels</string>
     <string name="level_select_title">Levels  (%1$d stars)</string>
     <string name="level_item">Level %1$d   %2$s   %3$d×%4$d</string>
+    <string name="theme_patterns">Patterns (colour-blind friendly)</string>
 </resources>

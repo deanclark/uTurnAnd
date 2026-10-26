@@ -377,7 +377,7 @@ public class uTurn extends Activity
    }
 
    private void chooseTheme() {
-       String[] names = {getString(R.string.theme_soft), getString(R.string.theme_vivid)};
+       String[] names = {getString(R.string.theme_soft), getString(R.string.theme_vivid), getString(R.string.theme_patterns)};
        new android.app.AlertDialog.Builder(this)
                .setTitle(R.string.settings_theme_title)
                .setSingleChoiceItems(names, theme, (dialog, which) -> {
@@ -1046,7 +1046,7 @@ public class uTurn extends Activity
             for(int eachTileFromAll=0; eachTileFromAll<(tilesPerCol)*tilesPerRow; eachTileFromAll++)
             {
                 if(!tiles[eachTileFromAll].getInTransitTileState()) {
-                    tiles[eachTileFromAll].outlineColor = Palettes.outline(theme);
+                    tiles[eachTileFromAll].outlineColor = Palettes.outline(theme); tiles[eachTileFromAll].showSymbols = Palettes.hasSymbols(theme);
                     tiles[eachTileFromAll].PrintTile(canvas, segmentPalette, showTileIdCheckbox, drawRotation, asWireframeTile);
                 }
             }
@@ -1054,7 +1054,7 @@ public class uTurn extends Activity
             for(int eachTileFromAll=0; eachTileFromAll<(tilesPerCol)*tilesPerRow; eachTileFromAll++)
             {
                 if(tiles[eachTileFromAll].getInTransitTileState()) {
-                    tiles[eachTileFromAll].outlineColor = Palettes.outline(theme);
+                    tiles[eachTileFromAll].outlineColor = Palettes.outline(theme); tiles[eachTileFromAll].showSymbols = Palettes.hasSymbols(theme);
                     tiles[eachTileFromAll].PrintTile(canvas, segmentPalette, showTileIdCheckbox, drawRotation, asWireframeTile);
                 }
             }
