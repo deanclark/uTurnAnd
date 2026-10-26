@@ -62,7 +62,9 @@ public class uTurn extends Activity
     public TilePrintableAndroid tiles[] = new TilePrintableAndroid[LevelRules.MAX_TILES];
 
     int colours[] = new int[4];
-    int segmentPalette[] = {Color.DKGRAY, Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW, Color.CYAN};
+    // index 0 is the outside edge; 1-5 are the original colours, 6-8 are softer additions (lavender, peach, pink)
+    int segmentPalette[] = {Color.DKGRAY, Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW, Color.CYAN,
+            Color.rgb(179, 157, 219), Color.rgb(255, 179, 138), Color.rgb(244, 143, 177)};
         
     UTurnView uturnview;
 //    int TilesPerRow = 5;
@@ -609,7 +611,10 @@ public class uTurn extends Activity
         // Number of tilesPerCol
     	private void initTiles(boolean outerBoarder, int numberOfColours)
     	{
-            int[][] solvedBoard = BoardRules.createSolvedBoard(tilesPerCol, tilesPerRow, BoardRules.OUTSIDE_EDGE, numberOfColours);
+            int[][] solvedBoard = LevelRules.RANDOM_EDGES
+                    ? BoardRules.createRandomSolvedBoard(tilesPerCol, tilesPerRow, BoardRules.OUTSIDE_EDGE, numberOfColours,
+                            System.nanoTime(), LevelRules.AVOID_DUPLICATE_TILES)
+                    : BoardRules.createSolvedBoard(tilesPerCol, tilesPerRow, BoardRules.OUTSIDE_EDGE, numberOfColours);
             for (int tileIndex = 0; tileIndex < solvedBoard.length; tileIndex++) {
                 tiles[tileIndex] = new TilePrintableAndroid(tileIndex, solvedBoard[tileIndex], Tile.getSegmentScale());
             }

@@ -120,6 +120,16 @@ current thinking, decisions and next steps so work can restart exactly where it 
   licences of: FreePD, OpenGameArt CC0, Pixabay, incompetech (CC BY). Keep a CREDITS file when added.
 - Known: demo solve runs on the UI thread (up to ~1 s on level 9+); landscape board is just smaller, not re-laid out.
 
+### Checkpoint 8 (easier early levels, soft colours, edge-colour options)
+- Colour schedule (`LevelRules.COLOURS`): levels 1-9 use 7,7,6,6,5,5,4,4,4 interior colours, 4 until level 14, then 3
+  (more colours = fewer look-alike edges = easier). Palette gained three softer colours: 6 lavender, 7 peach, 8 pink.
+- Edge colouring options for the solved board: `BoardRules.createSolvedBoard` (repeating pattern, current default) vs
+  `createRandomSolvedBoard(..., seed, avoidDuplicates)`. Finding: the repeating pattern gives 20 duplicate tiles on a 6x8/4-colour
+  board; random gives ~4, best-effort duplicate-free ~2 (zero is impossible with 4 colours). With 7 colours a 3x3 is duplicate-free.
+  Comparison image: `doc-files/edge-colour-options.png`. **DECISION PENDING (user)**: set `LevelRules.RANDOM_EDGES` (and
+  `AVOID_DUPLICATE_TILES`) once chosen; currently RANDOM_EDGES=false.
+- Tests: 20 in uTurn.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).

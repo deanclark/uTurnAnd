@@ -14,8 +14,22 @@ public final class LevelRules {
         {3, 3}, {3, 4}, {4, 4}, {4, 5}, {5, 5}, {5, 6}, {5, 7}, {6, 7}, {6, 8}
     };
 
-    private static final int FIVE_COLOUR_LEVELS = 2;
-    private static final int FOUR_COLOUR_LEVELS = 14;
+    /**
+     * Interior colours for levels 1..9, easiest first: with many colours most edges are unique so each match is nearly
+     * forced; as the board grows the colour count falls so look-alike edges (and difficulty) increase.
+     */
+    private static final int[] COLOURS = {7, 7, 6, 6, 5, 5, 4, 4, 4};
+    private static final int FOUR_COLOUR_LEVELS = 14;   // levels 10..14 stay at 4, 15 and up use 3
+
+    /** Highest colour count used, i.e. the number of interior colours the palette must provide. */
+    public static final int MAX_COLOURS = 7;
+
+    /**
+     * How the solved board's interior edges are coloured. false = the original repeating pattern (many duplicate
+     * tiles on big boards); true = random colours from a seed, see BoardRules.createRandomSolvedBoard.
+     */
+    public static final boolean RANDOM_EDGES = false;
+    public static final boolean AVOID_DUPLICATE_TILES = true;
 
     public final int level;
     public final int columns;
@@ -32,7 +46,7 @@ public final class LevelRules {
     public static LevelRules forLevel(int level) {
         int safeLevel = Math.max(1, level);
         int[] size = SIZES[Math.min(safeLevel, SIZES.length) - 1];
-        int colours = safeLevel <= FIVE_COLOUR_LEVELS ? 5 : safeLevel <= FOUR_COLOUR_LEVELS ? 4 : 3;
+        int colours = safeLevel <= COLOURS.length ? COLOURS[safeLevel - 1] : safeLevel <= FOUR_COLOUR_LEVELS ? 4 : 3;
         return new LevelRules(safeLevel, size[0], size[1], colours);
     }
 }

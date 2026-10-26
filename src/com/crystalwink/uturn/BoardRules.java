@@ -36,6 +36,77 @@ public final class BoardRules {
         return cells;
     }
 
+    /**
+     * A solved board whose interior edges get random colours instead of the repeating pattern of
+     * {@link #createSolvedBoard}.
+     *
+     * @param avoidDuplicates when true the board is regenerated (up to a few hundred times) to avoid two tiles being
+     *                        the same tile turned; if that is impossible for the board size and colour count the
+     *                        board with the fewest duplicates is returned
+     */
+    public static int[][] createRandomSolvedBoard(int rows, int columns, int outsideEdge, int colorCount, long seed,
+                                                  boolean avoidDuplicates) {
+        if (rows <= 0 || columns <= 0 || colorCount <= 0) {
+            throw new IllegalArgumentException("Board dimensions and color count must be positive");
+        }
+        int[][] best = null;
+        int bestDuplicates = Integer.MAX_VALUE;
+        int attempts = avoidDuplicates ? 500 : 1;
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            int[][] candidate = randomBoard(rows, columns, outsideEdge, colorCount, new java.util.Random(seed + attempt));
+            int duplicates = avoidDuplicates ? countDuplicateTiles(candidate) : 0;
+            if (duplicates < bestDuplicates) {
+                best = candidate;
+                bestDuplicates = duplicates;
+            }
+            if (bestDuplicates == 0) {
+                break;
+            }
+        }
+        return best;
+    }
+
+    private static int[][] randomBoard(int rows, int columns, int outsideEdge, int colorCount, java.util.Random random) {
+        int[][] horizontal = new int[Math.max(rows - 1, 0)][columns];   // edge below cell [row][column]
+        int[][] vertical = new int[rows][Math.max(columns - 1, 0)];     // edge right of cell [row][column]
+        for (int[] line : horizontal) {
+            for (int index = 0; index < line.length; index++) {
+                line[index] = 1 + random.nextInt(colorCount);
+            }
+        }
+        for (int[] line : vertical) {
+            for (int index = 0; index < line.length; index++) {
+                line[index] = 1 + random.nextInt(colorCount);
+            }
+        }
+
+        int[][] cells = new int[rows * columns][4];
+        for (int row = 0; row < rows; row++) {
+            for (int column = 0; column < columns; column++) {
+                int[] segments = cells[row * columns + column];
+                segments[TOP] = row == 0 ? outsideEdge : horizontal[row - 1][column];
+                segments[RIGHT] = column == columns - 1 ? outsideEdge : vertical[row][column];
+                segments[BOTTOM] = row == rows - 1 ? outsideEdge : horizontal[row][column];
+                segments[LEFT] = column == 0 ? outsideEdge : vertical[row][column - 1];
+            }
+        }
+        return cells;
+    }
+
+    /** Number of tiles that are the same as an earlier tile, allowing for the earlier tile being turned. */
+    public static int countDuplicateTiles(int[][] cells) {
+        int duplicates = 0;
+        for (int tile = 1; tile < cells.length; tile++) {
+            for (int earlier = 0; earlier < tile; earlier++) {
+                if (DemoSolver.turnsToReach(cells[earlier], cells[tile]) >= 0) {
+                    duplicates++;
+                    break;
+                }
+            }
+        }
+        return duplicates;
+    }
+
     private static int horizontalEdgeColor(int row, int column, int columns, int colorCount) {
         return 1 + (row * columns + column) % colorCount;
     }
