@@ -17,7 +17,7 @@ current thinking, decisions and next steps so work can restart exactly where it 
   commit both repos together. Record the Crystals commit hash the jar came from in the table below.
 - A conversation summary lives in `CONVERSATION_SUMMARY.md` (local only, excluded via
   `.git/info/exclude` — never commit it).
-- Before closing a session, publish/refresh the "Active Memory" artifact.
+- Before closing a session, publish/refresh the "Active Memory" artifact (https://claude.ai/artifact/CMijS2TFuWfWq4GvSFSnt6).
 
 ## Build / run
 
@@ -56,8 +56,10 @@ current thinking, decisions and next steps so work can restart exactly where it 
   timestamp. Replaced deprecated `SoundPool(…)` ctor, `getDefaultDisplay().getMetrics`, FLAG_FULLSCREEN and
   `requestWindowFeature(NO_TITLE)`. Action bar kept so the options menu is reachable (no menu key on modern devices).
   Board is laid out from view size + window insets (edge-to-edge safe) and centred.
-- Emulator `emulator-5554` was unresponsive to adb at the time of the review (adb shell hung); on-device verification
-  still outstanding — retry (cold boot the AVD if needed).
+- On-device verification still outstanding: the only AVD with an installed image, `Medium_Phone_API_37.0` (started by
+  Android Studio, pid 59868/63516), hung and went offline (adb shell timed out, `adb devices` = offline). The
+  `uTurnApi31` AVD has no system image installed, and a 2nd instance cannot start while the first is not `-read-only`.
+  Next session: restart the AVD (cold boot) then `gradlew installDebug`, play a level to a win, check the menu and insets.
 
 ### Checkpoint 2 (Crystals fixes, jar re-synced to Crystals df51356)
 - **HighWater oscillation** (non-floating): the fixed backtrack depth (3) made the placed count saw-tooth N, N-3, N...
@@ -87,9 +89,11 @@ current thinking, decisions and next steps so work can restart exactly where it 
 
 ## Backlog (in rough priority)
 
-1. Crystals: HighWater/backtrack oscillation in non-floating mode (`FrameStructure.drawFrame`).
-2. Crystals: floating mode tile overlap (`GraphPanel.relax` dy bug, overlap resolution, "Large" tile size).
-3. Crystals: non-floating Wireframe checkbox should draw tile segment wireframes; unchecked should fill tiles.
-4. Rebuild + copy `CrystalsCommon.jar`; record hash above.
-5. uTurn: replace colour palette with patterns/pictures per segment; celebration animation; icon set; settings.
-6. Verify on emulator (API 31 and 37) once adb is healthy.
+1. Verify on emulator/device (API 31 and 37): win a level, menu reachable, insets, sound.
+2. Eyeball Crystals floating mode on the desktop (`./gradlew run` in Crystals): tiles should butt, not overlap, at both Large settings.
+3. uTurn: replace the colour palette with patterns/pictures per segment (viral appeal); celebration animation; share action;
+   adaptive icon + xhdpi/xxhdpi; real settings screen; delete Eclipse leftovers and the dead GridView path.
+4. Crystals: finish or delete the 45 `fail("Not yet implemented")` stub tests.
+5. Optional: AGP 9.4.1 / Gradle 9.8.2 bump in uTurn.
+
+Done so far: items 1-4 of the original backlog (backtrack oscillation, floating overlap, non-floating wireframe/fill, jar sync).
