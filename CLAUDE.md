@@ -32,6 +32,7 @@ current thinking, decisions and next steps so work can restart exactly where it 
 | CrystalsCommon.jar in uTurnAnd/libs | built from Crystals commit |
 |---|---|
 | (original, from `f8f1f12`) | f8f1f12 — class sizes identical to a fresh build at session start |
+| rebuilt after Tile.rescale/layoutSegments, LockManager.decreaseLock, Segment.setActiveWire fixes | df51356 |
 
 ## Game rules (uTurn)
 
@@ -57,6 +58,22 @@ current thinking, decisions and next steps so work can restart exactly where it 
   Board is laid out from view size + window insets (edge-to-edge safe) and centred.
 - Emulator `emulator-5554` was unresponsive to adb at the time of the review (adb shell hung); on-device verification
   still outstanding — retry (cold boot the AVD if needed).
+
+### Checkpoint 2 (Crystals fixes, jar re-synced to Crystals df51356)
+- **HighWater oscillation** (non-floating): the fixed backtrack depth (3) made the placed count saw-tooth N, N-3, N...
+  `FrameStructure.nextBacktrackDepth` now escalates the depth on repeated dead ends at no greater depth and resets on
+  progress; the hint tile is never undone. Reproduced and verified with a headless harness (3000 steps: max placed 61 -> 130).
+- **Non-floating wireframe/fill**: `drawFrame` only drew edge lines. `drawPlacedTiles`/`drawCell` now draw each placed
+  tile as 4 triangular segments; Wireframe = outline in segment colour, unchecked = filled (verified by rendered PNGs + tests).
+- **Floating overlap**: `relax()` used `secondaryTile.yWorldSpace` instead of `relativeSecY` for the y offset;
+  `resolveTileOverlaps` ignored locked-vs-locked pairs (weaker lock now yields); right/bottom clamp margin fixed.
+- **Large tick box** is now a dedicated checkbox in both modes: `GraphPanel.setTileScale` -> `Tile.rescale`
+  (15 / 28 px tiles; frame cell 6 / 40 px). The old behaviour where Large toggled the *random* flag in frame mode is gone;
+  `Active` is floating-only (hidden in frame mode).
+- Misc: `LockManager.decreaseLock` AIOOBE on unknown lock; `Segment.setActiveWire` compared fromSegment twice.
+- NOT verified interactively: floating-mode relax() visuals (Applet cannot be constructed headless) - unit tests only.
+  Eyeball it on the desktop (`./gradlew run` in Crystals).
+- Crystals test suite: 82 tests, 45 fail - all pre-existing Eclipse `fail("Not yet implemented")` stubs.
 
 ## Obsolete / to-modernise list (Android 12+)
 

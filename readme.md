@@ -21,8 +21,16 @@ Experimental tesylation game for Android
 Controls
 -----------
 
-* Click a tile to rotate it clockwise by one segment.
-* Move a tile by swapping it with the tile directly benith the tile to be dropped
+* Tap a tile to rotate it clockwise by one segment; press and hold (about half a second) to rotate it anticlockwise.
+* Drag a tile onto another tile to swap them.
+* The options menu (action bar) has New Game, Demo Mode, Sound and Settings.
+
+Winning
+-----------
+
+A level is won when every shared edge matches its neighbour's colour and every border edge sits on the outside edge (palette index 0).
+Victory is judged from the tiles' current positions (`BoardRules.isSolved`), not a stored arrangement, so any valid arrangement
+counts - including a different solution, or the generated solution turned through 90/180/270 degrees. After a short celebration the next level starts.
 
 
 
@@ -39,5 +47,15 @@ Running the application
 
 * Windows: `gradlew.bat installDebug`
 * macOS/Linux: `./gradlew installDebug`
+
+#### To test:
+
+* `gradlew.bat testDebugUnitTest lintDebug`
+
+#### Shared library
+
+`libs/CrystalsCommon.jar` is built from the `com/crystalwink/crystalscommon` package of https://github.com/deanclark/Crystals
+(`gradlew crystalsCommonJar` there, then copy `build/android-libs/CrystalsCommon.jar` here). The two repositories must be kept in step;
+`CLAUDE.md` records which Crystals commit the jar was built from.
 
 The Gradle build uses Android Gradle Plugin 9.4.0, Gradle 9.6.0, JDK 17 or newer, compile/target SDK 37, Android 12 (API 31) minimum, and Java 11 bytecode. The app uses `libs/CrystalsCommon.jar`.
