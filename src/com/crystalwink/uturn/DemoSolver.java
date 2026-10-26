@@ -31,7 +31,7 @@ public final class DemoSolver {
         }
     }
 
-    private static final int MAX_NODES = 3_000_000;
+    private static final int MAX_NODES = 5_000_000;
 
     private final int[][] tiles;
     private final int rows;
@@ -116,8 +116,8 @@ public final class DemoSolver {
         int column = order.get(position)[1];
         int cell = row * columns + column;
         for (int tile = 0; tile < tiles.length; tile++) {
-            if (used[tile]) {
-                continue;
+            if (used[tile] || hasUnusedTwin(tile)) {
+                continue;   // a look-alike earlier in the list would lead to exactly the same search
             }
             for (int turn = 0; turn < 4; turn++) {
                 int[] candidate = rotate(tiles[tile], turn);
@@ -131,6 +131,16 @@ public final class DemoSolver {
                     placedColours[cell] = null;
                     used[tile] = false;
                 }
+            }
+        }
+        return false;
+    }
+
+    /** True when an earlier unused tile is the same as this one (possibly turned), so trying both is wasted effort. */
+    private boolean hasUnusedTwin(int tile) {
+        for (int other = 0; other < tile; other++) {
+            if (!used[other] && turnsToReach(tiles[other], tiles[tile]) >= 0) {
+                return true;
             }
         }
         return false;

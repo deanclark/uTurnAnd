@@ -5,6 +5,7 @@ import java.util.Random;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -58,7 +59,7 @@ public class uTurn extends Activity
 
 //    public final static int MAX_TILES = 256;
 //    public TilePrintableAndroid tiles[] = new TilePrintableAndroid[CrystalGlobals.MAX_TILES];
-    public TilePrintableAndroid tiles[] = new TilePrintableAndroid[30];
+    public TilePrintableAndroid tiles[] = new TilePrintableAndroid[LevelRules.MAX_TILES];
 
     int colours[] = new int[4];
     int segmentPalette[] = {Color.DKGRAY, Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW, Color.CYAN};
@@ -72,7 +73,11 @@ public class uTurn extends Activity
     int originX, originY;
     long grabOffsetX, grabOffsetY;   // tile centre minus finger position when a drag starts   // top left of the board within the view
     int difficultyLevel = 1;
-    int maxDifficultyLevel = 6;
+    private static final String PREFS = "uturn";
+    private static final String PREF_LEVEL = "level";
+    private static final String PREF_BOARD = "board";
+    private static final String PREF_SOUND = "sound";
+    private GameState restoredBoard;   // board from a previous run of the app, used once by the next init()
     private final Handler gameHandler = new Handler(Looper.getMainLooper());
     private Runnable advanceLevelTask;
     private boolean levelAdvancePending;
@@ -174,6 +179,7 @@ public class uTurn extends Activity
 		   advanceLevelTask = null;
 	   }
 	   levelAdvancePending = false;
+	   restoredBoard = null;
 	   uturnview.init();
 	   Toast.makeText(uTurn.this, "New Game", Toast.LENGTH_SHORT).show();
    }
@@ -187,7 +193,9 @@ public class uTurn extends Activity
        Log.i(TAG, "level " + difficultyLevel + " complete (" + tilesPerRow + "x" + tilesPerCol + ")");
        Toast.makeText(this, "Level " + difficultyLevel + " complete!", Toast.LENGTH_LONG).show();
        advanceLevelTask = () -> {
-           difficultyLevel = difficultyLevel >= maxDifficultyLevel ? 1 : difficultyLevel + 1;
+           difficultyLevel = difficultyLevel + 1;
+           restoredBoard = null;
+           saveProgress(false);
            levelAdvancePending = false;
            advanceLevelTask = null;
            uturnview.init();
@@ -297,6 +305,7 @@ public class uTurn extends Activity
         // insets, so it also behaves under the edge-to-edge layout enforced from Android 15.
         setVolumeControlStream(AudioManager.STREAM_MUSIC); 
         contextStored = this;
+        loadProgress();
         initSounds();
 
         uturnview = new UTurnView(this);
@@ -322,6 +331,48 @@ public class uTurn extends Activity
         
         if((debugMask & (debugMaskAll | debugMaskStartEnd)) > 0)
         	Log.v(TAG, "onCreate() - End");
+    }
+
+    /** Remember the level (and optionally the board) so minimising or killing the app does not lose progress. */
+    private void saveProgress(boolean includeBoard) {
+        SharedPreferences.Editor editor = getSharedPreferences(PREFS, MODE_PRIVATE).edit();
+        editor.putInt(PREF_LEVEL, difficultyLevel);
+        editor.putBoolean(PREF_SOUND, soundOn);
+        if (includeBoard && uturnview != null && !levelAdvancePending && tiles[0] != null) {
+            int cellCount = tilesPerRow * tilesPerCol;
+            int[] cellOfTile = new int[cellCount];
+            int[][] colours = new int[cellCount][Tile.segmentCount];
+            int scale = Tile.getSegmentScale();
+            for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
+                int column = (int) Math.round((tiles[tileIndex].getWorldSpaceX() - scale / 2f) / scale);
+                int row = (int) Math.round((tiles[tileIndex].getWorldSpaceY() - scale / 2f) / scale);
+                cellOfTile[tileIndex] = row * tilesPerRow + column;
+                tiles[tileIndex].getTileColours(colours[tileIndex]);
+            }
+            editor.putString(PREF_BOARD, GameState.encode(difficultyLevel, tilesPerRow, tilesPerCol, cellOfTile, colours));
+        } else {
+            editor.remove(PREF_BOARD);
+        }
+        editor.apply();
+    }
+
+    private void loadProgress() {
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        difficultyLevel = Math.max(1, prefs.getInt(PREF_LEVEL, 1));
+        soundOn = prefs.getBoolean(PREF_SOUND, false);
+        GameState state = GameState.decode(prefs.getString(PREF_BOARD, null));
+        LevelRules rules = LevelRules.forLevel(difficultyLevel);
+        restoredBoard = state != null && state.level == difficultyLevel
+                && state.columns == rules.columns && state.rows == rules.rows ? state : null;
+    }
+
+    @Override
+    protected void onPause() {
+        if (uturnview != null) {
+            uturnview.stopForPause();
+        }
+        saveProgress(true);
+        super.onPause();
     }
 
     @Override
@@ -464,9 +515,52 @@ public class uTurn extends Activity
             if (usableWidth == screenWidth && usableHeight == screenHeight && tiles[0] != null) {
                 return;
             }
+            boolean boardExists = tiles[0] != null;
             screenWidth = usableWidth;
             screenHeight = usableHeight;
-            init();
+            if (boardExists) {
+                rescaleBoard();   // rotation / resize: keep the game, just refit it
+            } else {
+                init();
+            }
+        }
+
+        /** Refit the existing board to a new screen size, keeping every tile in its cell. */
+        private void rescaleBoard() {
+            stopForPause();
+            int cellCount = tilesPerRow * tilesPerCol;
+            int[] cellOfTile = new int[cellCount];
+            int oldScale = Tile.getSegmentScale();
+            for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
+                int column = (int) Math.round((tiles[tileIndex].getWorldSpaceX() - oldScale / 2f) / oldScale);
+                int row = (int) Math.round((tiles[tileIndex].getWorldSpaceY() - oldScale / 2f) / oldScale);
+                cellOfTile[tileIndex] = row * tilesPerRow + column;
+            }
+            int scale = fitScale();
+            Tile.setSegmentScale(scale);
+            originX = insetLeft + (screenWidth - scale * tilesPerRow) / 2;
+            originY = insetTop + (screenHeight - scale * tilesPerCol) / 2;
+            for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
+                tiles[tileIndex].rescale(scale);
+                tiles[tileIndex].moveTile(scale * (cellOfTile[tileIndex] % tilesPerRow) + scale / 2,
+                        scale * (cellOfTile[tileIndex] / tilesPerRow) + scale / 2);
+            }
+            invalidate();
+        }
+
+        private int fitScale() {
+            return (int) Math.round(Math.min((double) (screenWidth / tilesPerRow), (double) screenHeight / tilesPerCol) - 0.5);
+        }
+
+        /** Drop any drag or demo in progress (app paused, screen rotated). */
+        private void stopForPause() {
+            if (demoOn) {
+                demoStop();
+            }
+            if (initialTileId >= 0) {
+                tiles[initialTileId].setInTransitTileState(false);
+                initialTileId = -1;
+            }
         }
 
         
@@ -521,76 +615,25 @@ public class uTurn extends Activity
             }
     	}
     	
-        private void setDifficultyLevel(int level)
-        {
-            if(level < 0 || level > maxDifficultyLevel)
-                difficultyLevel = (int) Math.round((Math.random() * maxDifficultyLevel));
-            else
-                difficultyLevel = level;
+        private void applyLevelRules() {
+            LevelRules rules = LevelRules.forLevel(difficultyLevel);
+            difficultyLevel = rules.level;
+            outerBoarder = true;
+            numberOfColours = rules.colours;
+            tilesPerRow = rules.columns;
+            tilesPerCol = rules.rows;
         }
-        
-        private int getDifficultyLevel()
-        {
-            switch(difficultyLevel)
-            {
-            case 1:
-                outerBoarder    = true;
-                numberOfColours = 5;
-                tilesPerRow     = 3;
-                tilesPerCol     = 3;
-                break;
-            case 2:
-                outerBoarder    = true;
-                numberOfColours = 5;
-                tilesPerRow     = 3;
-                tilesPerCol     = 4;
-                break;
-            case 3:
-                outerBoarder    = true;
-                numberOfColours = 4;
-                tilesPerRow     = 4;
-                tilesPerCol     = 4;
-                break;
-            case 4:
-                outerBoarder    = true;
-                numberOfColours = 4;
-                tilesPerRow     = 4;
-                tilesPerCol     = 5;
-                break;
-            case 5:
-                outerBoarder    = true;
-                numberOfColours = 4;
-                tilesPerRow     = 5;
-                tilesPerCol     = 5;
-                break;
-            case 6:
-                outerBoarder    = true;
-                numberOfColours = 4;
-                tilesPerRow     = 5;
-                tilesPerCol     = 6;
-                break;
-            default:
-                outerBoarder    = true;
-                numberOfColours = 4;
-                tilesPerRow     = 4;
-                tilesPerCol     = 6;
-                break;
-            }
-            
-            return difficultyLevel;
-        }
-        
+
         private void init() {
         	
             paint = new Paint();
 
             // Determine number of rows, columns and colours to work with.
             firstTimeDrawn = true;
-            setDifficultyLevel(difficultyLevel);
-            getDifficultyLevel();
+            applyLevelRules();
             
             // Tiles should remain the same size regardless of device orientation
-            int scale = (int) java.lang.Math.round(  (java.lang.Math.min( (double) (screenWidth / tilesPerRow), (double) (screenHeight) / tilesPerCol)) - 0.5);
+            int scale = fitScale();
             Tile.setSegmentScale(scale);
 
             // centre the board within the usable area
@@ -611,6 +654,17 @@ public class uTurn extends Activity
 	            Log.v(TAG, "init() screenHeight:" + screenHeight + "  screenWidth:" + screenWidth + " Tile scale:" + Tile.getSegmentScale());
 	        	Log.v(TAG, "init() tilesPerCol:" + tilesPerCol + "  tilesPerRow:" + tilesPerRow);
             }
+
+        	GameState saved = restoredBoard;
+        	restoredBoard = null;
+        	if (saved != null && saved.columns == tilesPerRow && saved.rows == tilesPerCol) {
+        	    for (int tileIndex = 0; tileIndex < saved.cellOfTile.length; tileIndex++) {
+        	        tiles[tileIndex] = new TilePrintableAndroid(tileIndex, saved.colours[tileIndex], scale);
+        	        int cell = saved.cellOfTile[tileIndex];
+        	        tiles[tileIndex].moveTile(scale * (cell % tilesPerRow) + scale / 2, scale * (cell / tilesPerRow) + scale / 2);
+        	    }
+        	    return;
+        	}
 
         	initTiles(outerBoarder, numberOfColours);
         	

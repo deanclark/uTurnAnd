@@ -108,6 +108,18 @@ current thinking, decisions and next steps so work can restart exactly where it 
   The emulator runs with `-no-audio`, so audible output is NOT confirmed - listen on a real device.
 - uTurn.java now logs (tag `uTurn`) sound load/play, demo plan size and level completion.
 
+### Checkpoint 7 (unlimited levels, saved progress, rotation, wishlist)
+- `LevelRules`: unlimited levels. 3x3 .. 6x8 over the first 9 levels (first six unchanged), then fewer interior colours
+  (5 -> 4 at level 3, 4 -> 3 at level 15). `MAX_TILES` = 48. `DemoSolver` now skips look-alike tiles; unit test solves levels 1-50.
+- Progress: `GameState` (text encode/decode, validated) + SharedPreferences `uturn` (`level`, `sound`, `board`). Saved in
+  `onPause` and on level advance; restored in `onCreate`/`init()` only when level and board size still match. Verified on API 37:
+  level 2 board identical after Home+relaunch and after force-stop.
+- Rotation: portrait lock removed, `configChanges` handles it; `rescaleBoard()` refits tiles to their cells instead of restarting.
+  Verified in landscape: board kept, action bar + overflow menu follow the device orientation.
+- `FEATURES.md` = feature wishlist (themes, patterns/pictures, music, hints, daily puzzle, sharing...). Music sources to check
+  licences of: FreePD, OpenGameArt CC0, Pixabay, incompetech (CC BY). Keep a CREDITS file when added.
+- Known: demo solve runs on the UI thread (up to ~1 s on level 9+); landscape board is just smaller, not re-laid out.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
