@@ -131,6 +131,14 @@ current thinking, decisions and next steps so work can restart exactly where it 
   DemoSolver unit test now runs on random boards up to level 50.
 - Tests: 20 in uTurn.
 
+### Checkpoint 9 (themes + Settings dialog)
+- `Palettes` (pure, tested): SOFT (default; calm pastel edges, warm off-white background, slate outside edge) and VIVID
+  (original saturated colours, white background; high-contrast option). Unit test enforces every pair of edge colours is
+  >60 apart in RGB (it caught slate-vs-teal and peach-vs-pink clashes) and that every theme has >= MAX_COLOURS+1 entries.
+- Settings menu item now opens a single-choice "Colour theme" dialog; choice stored in prefs `theme`. Verified on API 37:
+  switch to Vivid, force-stop + relaunch keeps Vivid, switch back keeps the same board.
+- `TilePrintableAndroid.outlineColor` is set per frame from the theme. Tests: 24 in uTurn.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).

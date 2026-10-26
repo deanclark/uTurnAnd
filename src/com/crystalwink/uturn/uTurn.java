@@ -62,9 +62,9 @@ public class uTurn extends Activity
     public TilePrintableAndroid tiles[] = new TilePrintableAndroid[LevelRules.MAX_TILES];
 
     int colours[] = new int[4];
-    // index 0 is the outside edge; 1-5 are the original colours, 6-8 are softer additions (lavender, peach, pink)
-    int segmentPalette[] = {Color.DKGRAY, Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW, Color.CYAN,
-            Color.rgb(179, 157, 219), Color.rgb(255, 179, 138), Color.rgb(244, 143, 177)};
+    // colours of each edge index (0 = outside edge) for the selected theme, see Palettes
+    int theme = Palettes.SOFT;
+    int segmentPalette[] = Palettes.edges(Palettes.SOFT);
         
     UTurnView uturnview;
 //    int TilesPerRow = 5;
@@ -79,6 +79,7 @@ public class uTurn extends Activity
     private static final String PREF_LEVEL = "level";
     private static final String PREF_BOARD = "board";
     private static final String PREF_SOUND = "sound";
+    private static final String PREF_THEME = "theme";
     private GameState restoredBoard;   // board from a previous run of the app, used once by the next init()
     private final Handler gameHandler = new Handler(Looper.getMainLooper());
     private Runnable advanceLevelTask;
@@ -262,8 +263,26 @@ public class uTurn extends Activity
 		   uturnview.demoToggle();
    }
 
+   private void applyTheme(int newTheme) {
+       theme = Palettes.sanitise(newTheme);
+       segmentPalette = Palettes.edges(theme);
+       if (uturnview != null) {
+           uturnview.invalidate();
+       }
+   }
+
+   /** Settings dialog: colour theme. More options (music, haptics...) belong here, see FEATURES.md. */
    private void settings() {
-		Toast.makeText(uTurn.this, "Settings", Toast.LENGTH_SHORT).show();
+       String[] names = {getString(R.string.theme_soft), getString(R.string.theme_vivid)};
+       new android.app.AlertDialog.Builder(this)
+               .setTitle(R.string.settings_theme_title)
+               .setSingleChoiceItems(names, theme, (dialog, which) -> {
+                   applyTheme(which);
+                   saveProgress(true);
+                   dialog.dismiss();
+               })
+               .setNegativeButton(android.R.string.cancel, null)
+               .show();
   }
    
    /* Handles item selections */ 
@@ -340,6 +359,7 @@ public class uTurn extends Activity
         SharedPreferences.Editor editor = getSharedPreferences(PREFS, MODE_PRIVATE).edit();
         editor.putInt(PREF_LEVEL, difficultyLevel);
         editor.putBoolean(PREF_SOUND, soundOn);
+        editor.putInt(PREF_THEME, theme);
         if (includeBoard && uturnview != null && !levelAdvancePending && tiles[0] != null) {
             int cellCount = tilesPerRow * tilesPerCol;
             int[] cellOfTile = new int[cellCount];
@@ -362,6 +382,7 @@ public class uTurn extends Activity
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         difficultyLevel = Math.max(1, prefs.getInt(PREF_LEVEL, 1));
         soundOn = prefs.getBoolean(PREF_SOUND, false);
+        applyTheme(prefs.getInt(PREF_THEME, Palettes.SOFT));
         GameState state = GameState.decode(prefs.getString(PREF_BOARD, null));
         LevelRules rules = LevelRules.forLevel(difficultyLevel);
         restoredBoard = state != null && state.level == difficultyLevel
@@ -822,7 +843,7 @@ public class uTurn extends Activity
 
             // make the entire canvas white
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.WHITE);
+            paint.setColor(Palettes.background(theme));
             canvas.drawPaint(paint);
             canvas.translate(originX, originY);
             // another way to do this is to use:
@@ -867,6 +888,7 @@ public class uTurn extends Activity
             for(int eachTileFromAll=0; eachTileFromAll<(tilesPerCol)*tilesPerRow; eachTileFromAll++)
             {
                 if(!tiles[eachTileFromAll].getInTransitTileState()) {
+                    tiles[eachTileFromAll].outlineColor = Palettes.outline(theme);
                     tiles[eachTileFromAll].PrintTile(canvas, segmentPalette, showTileIdCheckbox, drawRotation, asWireframeTile);
                 }
             }
@@ -874,6 +896,7 @@ public class uTurn extends Activity
             for(int eachTileFromAll=0; eachTileFromAll<(tilesPerCol)*tilesPerRow; eachTileFromAll++)
             {
                 if(tiles[eachTileFromAll].getInTransitTileState()) {
+                    tiles[eachTileFromAll].outlineColor = Palettes.outline(theme);
                     tiles[eachTileFromAll].PrintTile(canvas, segmentPalette, showTileIdCheckbox, drawRotation, asWireframeTile);
                 }
             }

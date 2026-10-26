@@ -23,6 +23,9 @@ public class TilePrintableAndroid extends Tile {
     private long xWorldSpaceInTransitTouchPoint = 0;
     private long yWorldSpaceInTransitTouchPoint = 0;
 
+    /** Colour of the lines between segments (the theme sets this before drawing). */
+    public int outlineColor = Color.BLACK;
+
     private final Path segmentPath = new Path();
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -110,7 +113,7 @@ public class TilePrintableAndroid extends Tile {
                 paint.setStyle(Paint.Style.FILL);
                 canvas.drawPath(segmentPath, paint);
                 paint.setStyle(Paint.Style.STROKE);
-                paint.setColor(locked() ? Color.RED : Color.BLACK);
+                paint.setColor(locked() ? Color.RED : outlineColor);
                 canvas.drawPath(segmentPath, paint);
             }
         }
