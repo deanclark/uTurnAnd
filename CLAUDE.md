@@ -77,6 +77,12 @@ current thinking, decisions and next steps so work can restart exactly where it 
   Eyeball it on the desktop (`./gradlew run` in Crystals).
 - Crystals test suite: 82 tests, 45 fail - all pre-existing Eclipse `fail("Not yet implemented")` stubs.
 
+### Checkpoint 3 (device check)
+- The hung AVD had closed; `Medium_Phone_API_37.0` was started fresh (`emulator -avd Medium_Phone_API_37.0 -no-snapshot
+  -no-audio -gpu swiftshader_indirect`). `gradlew installDebug` works; the app launches on Android API 37 with the action
+  bar + overflow menu visible, board centred, no crash. A real `adb shell input swipe` between two tiles swapped them.
+- Still unchecked on device: reaching a win (no solver; covered by BoardRulesTest), sound, API 31.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
