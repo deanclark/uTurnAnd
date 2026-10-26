@@ -32,19 +32,12 @@ Running the application
  
 #### To compile:
 
-*     ant
+* Windows: `gradlew.bat assembleDebug`
+* macOS/Linux: `./gradlew assembleDebug`
 
 #### To run:
-   
-   * from within Eclipse right click the AndroidManifest.xml and Run As->Android Application
-    
 
-#### To rebuild Eclipse Project:
-*     mvn eclipse:clean eclipse:eclipse -DdownloadSources -Declipse:useProjectReferences=false -Dwtpversion=2.0
+* Windows: `gradlew.bat installDebug`
+* macOS/Linux: `./gradlew installDebug`
 
-#### JUnit
-* 	from within Eclipse right click the AndroidManifest.xml and Run As->Android Test
-	
-	
-#### Ant build of jar file
-*     ant createjar
+The Gradle build uses Android Gradle Plugin 9.4.0, Gradle 9.6.0, JDK 17 or newer, compile/target SDK 37, Android 12 (API 31) minimum, and Java 11 bytecode. The app uses `libs/CrystalsCommon.jar`.

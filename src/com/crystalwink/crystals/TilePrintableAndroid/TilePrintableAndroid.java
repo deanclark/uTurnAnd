@@ -321,8 +321,10 @@ public class TilePrintableAndroid extends Tile {
             //    rotationZ(tileSegment[segment], this);
             //}
 
-            // TODO replace the following fudge once the colour palate has been initialised correctly 
-            paint.setColor(0xffff0000 + (tileSegment[segment].colour * 0x71c));
+                int edgeColorId = tileSegment[segment].colour;
+                paint.setColor(edgeColorId >= 0 && edgeColorId < palate.length
+                    ? palate[edgeColorId]
+                    : Color.DKGRAY);
 
             // comment the following for wireframe
             if (asWireframeTile) {

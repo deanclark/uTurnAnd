@@ -1,6 +1,7 @@
 package com.crystalwink.uturn;
 
 import java.util.HashMap;
+import java.util.Random;
 
 import android.app.Activity;
 import android.content.Context;
@@ -13,6 +14,8 @@ import android.graphics.Paint;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Menu;
@@ -50,20 +53,25 @@ public class uTurn extends Activity
     //static final int debugMask = debugMaskDiscrete;
     
     private static final String TAG = "uTurn";
+    private static final long ROTATION_HOLD_THRESHOLD_MS = 500;
 
 //    public final static int MAX_TILES = 256;
 //    public TilePrintableAndroid tiles[] = new TilePrintableAndroid[CrystalGlobals.MAX_TILES];
     public TilePrintableAndroid tiles[] = new TilePrintableAndroid[30];
 
     int colours[] = new int[4];
+    int segmentPalette[] = {Color.DKGRAY, Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW, Color.CYAN};
         
     UTurnView uturnview;
 //    int TilesPerRow = 5;
     int titleHight = 0;  // title bar height not required in full screen mode
     int screenHeight; 
     int screenWidth;
-    int difficultyLevel = 6; 
+    int difficultyLevel = 1;
     int maxDifficultyLevel = 6;
+    private final Handler gameHandler = new Handler(Looper.getMainLooper());
+    private Runnable advanceLevelTask;
+    private boolean levelAdvancePending;
     
     boolean outerBoarder = true;
     int numberOfColours = 4;
@@ -130,6 +138,9 @@ public class uTurn extends Activity
 
     private void initSounds() { 
         int maxStreams = 200; //  when set to 4 this results in an intermittent crash
+        if (soundPool != null) {
+            soundPool.release();
+        }
         soundPool = new SoundPool(maxStreams, AudioManager.STREAM_MUSIC, 100); 
         soundPoolMap = new HashMap<Integer, Integer>(); 
 //        soundPoolMap.put(SOUND_BACKGROUND, soundPool.load(contextStored, R.raw.background, 1)); 
@@ -155,8 +166,67 @@ public class uTurn extends Activity
 	} 
     
    private void newGame() {
+	   if (advanceLevelTask != null) {
+		   gameHandler.removeCallbacks(advanceLevelTask);
+		   advanceLevelTask = null;
+	   }
+	   levelAdvancePending = false;
 	   uturnview.init();
 	   Toast.makeText(uTurn.this, "New Game", Toast.LENGTH_SHORT).show();
+   }
+
+   private void checkForLevelComplete() {
+       if (levelAdvancePending || !isBoardSolved()) {
+           return;
+       }
+
+       levelAdvancePending = true;
+       Toast.makeText(this, "Level " + difficultyLevel + " complete!", Toast.LENGTH_LONG).show();
+       advanceLevelTask = () -> {
+           difficultyLevel = difficultyLevel >= maxDifficultyLevel ? 1 : difficultyLevel + 1;
+           levelAdvancePending = false;
+           advanceLevelTask = null;
+           uturnview.init();
+           Toast.makeText(this, "Level " + difficultyLevel, Toast.LENGTH_SHORT).show();
+       };
+       gameHandler.postDelayed(advanceLevelTask, 3000);
+   }
+
+   private boolean isBoardSolved() {
+       int rows = tilesPerCol;
+       int columns = tilesPerRow;
+       int scale = Tile.getSegmentScale();
+       if (rows <= 0 || columns <= 0 || scale <= 0 || rows * columns > tiles.length) {
+           return false;
+       }
+
+       int[][] cellColors = new int[rows * columns][];
+       for (int tileIndex = 0; tileIndex < rows * columns; tileIndex++) {
+           TilePrintableAndroid tile = tiles[tileIndex];
+           long worldX = tile.getWorldSpaceX();
+           long worldY = tile.getWorldSpaceY();
+           int column = Math.round((worldX - scale / 2f) / scale);
+           int row = Math.round((worldY - scale / 2f) / scale);
+           if (row < 0 || row >= rows || column < 0 || column >= columns) {
+               return false;
+           }
+
+           float expectedX = (column + 0.5f) * scale;
+           float expectedY = (row + 0.5f) * scale;
+           if (Math.abs(worldX - expectedX) > scale * 0.2f || Math.abs(worldY - expectedY) > scale * 0.2f) {
+               return false;
+           }
+
+           int cellIndex = row * columns + column;
+           if (cellColors[cellIndex] != null) {
+               return false;
+           }
+
+           cellColors[cellIndex] = new int[Tile.segmentCount];
+           tile.getTileColours(cellColors[cellIndex]);
+       }
+
+       return BoardRules.isSolved(cellColors, rows, columns, Color.DKGRAY);
    }
 
    private void soundToggle() {
@@ -193,17 +263,17 @@ public class uTurn extends Activity
    
    /* Handles item selections */ 
    public boolean onOptionsItemSelected(MenuItem item) { 
-       switch (item.getItemId()) { 
-       case (id.new_game): 
+       int itemId = item.getItemId();
+       if (itemId == id.new_game) {
            newGame(); 
            return true; 
-       case (id.demoMode): 
+       } else if (itemId == id.demoMode) {
            demoMode(); 
            return true; 
-       case (id.soundToggle): 
+       } else if (itemId == id.soundToggle) {
     	   soundToggle();
            return true; 
-       case (id.settings): 
+       } else if (itemId == id.settings) {
            settings(); 
            return true; 
        } 
@@ -259,6 +329,17 @@ public class uTurn extends Activity
         if((debugMask & (debugMaskAll | debugMaskStartEnd)) > 0)
         	Log.v(TAG, "onCreate() - End");
     }
+
+    @Override
+    protected void onDestroy() {
+        if (advanceLevelTask != null) {
+            gameHandler.removeCallbacks(advanceLevelTask);
+        }
+        if (soundPool != null) {
+            soundPool.release();
+        }
+        super.onDestroy();
+    }
     
     private class UTurnView extends View
     {
@@ -299,8 +380,7 @@ public class uTurn extends Activity
 	            	touchPointInitialY = java.lang.Math.round( event.getY() );
 	
 	            	initialDownTime = event.getDownTime();
-	            	//accumulatedDownTime += event.getDownTime();
-                    accumulatedDownTime = initialDownTime;  // reset
+                    accumulatedDownTime = 0;
 	            	
 	                initialTileId = findTouchedTileId((int)touchPointInitialX, (int)touchPointInitialY);
 	                
@@ -368,6 +448,7 @@ public class uTurn extends Activity
 	    	            Log.v(TAG, "onTouchEvent() action.DOWN: findTouchedTileId returned -1 for initialTileId WARNING");
 	                }
                 }
+
             	break;
             case MotionEvent.ACTION_UP: // event.ACTION_UP
             	// Demo mode - Ignore Move events until Demo End Complete End on touch
@@ -382,7 +463,7 @@ public class uTurn extends Activity
 		            	endX = java.lang.Math.round( event.getX() );
 		            	endY = java.lang.Math.round( event.getY() );
 		
-		                accumulatedDownTime += event.getDownTime();
+                        accumulatedDownTime = event.getEventTime() - initialDownTime;
 
 		                // check that endpoint is within range
 		                swapTileId = findTouchedTileId((int) endX, (int)endY);
@@ -418,7 +499,7 @@ public class uTurn extends Activity
 		                {
 		                    	// swap tiles
 		                    	swapTileWorldPositions(initialTileId, swapTileId);
-		                    	applyInprogreeToWorldPositions(autoTestTouchInitialTileId);
+                                    applyInprogreeToWorldPositions(initialTileId);
 	
 			                    //Toast.makeText(uTurn.this, "Swap tile:" + initialTileId + " with tile:" + swapTileId, Toast.LENGTH_SHORT).show();
 			                	
@@ -430,17 +511,22 @@ public class uTurn extends Activity
 		                
 		                if(initialTileId >= 0)
 		                {
-							if( accumulatedDownTime < 300000)
-								direction = 1;   // CW
+                            if (accumulatedDownTime < ROTATION_HOLD_THRESHOLD_MS)
+                            {
+                                direction = 1;   // CW
+                            }
 							else
+                            {
 								direction = -1;  // ACW
+                            }
 		
-			                // if start and end tile are one in the same, rotate
-			                checkAndRotate(initialTileId, swapTileId);
+                            // if start and end tile are one in the same, rotate
+                            checkAndRotate(initialTileId, swapTileId);
 		                    direction = 0; // no rotate
 		                
 		                    tiles[initialTileId].moveComplete = true;
-		                	initialTileId = -1;
+                            initialTileId = -1;
+                            uTurn.this.checkForLevelComplete();
 		                }
 		
 		                //Toast.makeText(uTurn.this, "end " + endX + "," + endY + " tileId " + initialTileId + " downTime " + (accumulatedDownTime-initialDownTime), Toast.LENGTH_SHORT).show();
@@ -586,128 +672,10 @@ public class uTurn extends Activity
         // Number of tilesPerCol
     	private void initTiles(boolean outerBoarder, int numberOfColours)
     	{
-        	//colours[0] = Color.DKGRAY;
-            colours[1] = Color.DKGRAY;
-            colours[2] = Color.DKGRAY;
-            colours[3] = Color.DKGRAY;
-
-            colours[0] = Color.RED;
-            colours[1] = Color.BLUE;
-            colours[2] = Color.GREEN;
-            colours[3] = Color.YELLOW;
-
-            // initialise each tile 
-            for(int eachTile=0; eachTile<(tilesPerCol*tilesPerRow); eachTile++)
-            {
-                tiles[eachTile] = new TilePrintableAndroid(eachTile, colours, Tile.getSegmentScale());
+            int[][] solvedBoard = BoardRules.createSolvedBoard(tilesPerCol, tilesPerRow, 0, numberOfColours);
+            for (int tileIndex = 0; tileIndex < solvedBoard.length; tileIndex++) {
+                tiles[tileIndex] = new TilePrintableAndroid(tileIndex, solvedBoard[tileIndex], Tile.getSegmentScale());
             }
-
-            int totalEdgeColours = (tilesPerCol * 2) + (tilesPerRow * 2);	// edge tiles may be gray
-            int totalColours     = tilesPerCol * tilesPerRow * 4;				// remaining colours minus the edge
-            int coloursRemaining = totalColours;
-
-            if(outerBoarder)
-            	totalColours -= totalEdgeColours;				// remaining colours minus the edge
-            
-            // define colour stacks
-            //numberOfColours
-            
-            // randomly distribute colours
-            
-            int eachTile = 0;
-            for(int eachTileRow=0; eachTileRow<(tilesPerCol); eachTileRow++) {
-                for(int eachTileCol=0; eachTileCol<tilesPerRow; eachTileCol++) {
-
-                	if(0==1)
-                	{
-	                    if(outerBoarder)
-	                    {
-	                        if(eachTileRow == 0)
-	                        {
-	                            colours[0] = Color.DKGRAY;
-	                            --coloursRemaining;
-	                        }
-	                        if(eachTileRow == tilesPerCol-1 )
-	                        {
-	                            colours[2] = Color.DKGRAY;
-	                            --coloursRemaining;
-	                        }
-	                        if(eachTileCol == 0)
-	                        {
-	                            colours[3] = Color.DKGRAY;
-	                            --coloursRemaining;
-	                        }
-	                        if(eachTileCol == tilesPerRow-1 )
-	                        {
-	                            colours[1] = Color.DKGRAY;
-	                            --coloursRemaining;
-	                        }
-	                    }
-                	}
-                	else
-                	{
-
-	                    // TODO - replace the following with randomly initialised tile colours
-	                    if(eachTileRow == 0)
-	                        colours[0] = Color.DKGRAY;
-	                    else
-	                        colours[0] = Color.RED;
-	                        
-	                    if(eachTileRow == tilesPerCol-1 )
-	                        colours[2] = Color.DKGRAY;
-	                    else
-	                        colours[2] = Color.GREEN;
-	
-	                    
-	                    if(eachTileCol == 0)
-	                        colours[3] = Color.DKGRAY;
-	                    else
-	                        colours[3] = Color.YELLOW;
-	                        
-	                    if(eachTileCol == tilesPerRow-1 )
-	                        colours[1] = Color.DKGRAY;
-	                    else
-	                        colours[1] = Color.BLUE;
-
-                	}
-
-                	// init tile colours
-                    tiles[eachTile].initTileColours(colours);                       // TODO - remove this once colours are init from file
-
-                    eachTile++;
-                }
-            }
-            
-            // one off tile init for demo only
-            colours[0] = Color.DKGRAY;
-            colours[1] = Color.BLUE;
-            colours[2] = Color.RED;
-            colours[3] = Color.BLUE;
-            tiles[3].initTileColours(colours);   // TODO - remove this once colours are init from file
-
-            // Tile 25
-            if(tilesPerCol*tilesPerRow >= 25)
-            {
-                // one off tile init for demo only
-                colours[0] = Color.GREEN;
-                colours[1] = Color.BLUE;
-                colours[2] = Color.DKGRAY;
-                colours[3] = Color.DKGRAY;
-                tiles[25].initTileColours(colours);   // TODO - remove this once colours are init from file
-            }
-            
-            // Tile 29
-            if(tilesPerCol*tilesPerRow >= 29)
-            {
-                // one off tile init for demo only
-                colours[0] = Color.GREEN;
-                colours[1] = Color.DKGRAY;
-                colours[2] = Color.DKGRAY;
-                colours[3] = Color.BLUE;
-                tiles[29].initTileColours(colours);   // TODO - remove this once colours are init from file
-            }
-            
-    		
     	}
     	
         private void setDifficultyLevel(int level)
@@ -781,7 +749,8 @@ public class uTurn extends Activity
             screenWidth  = dm.widthPixels;
 
             // Determine number of rows, columns and colours to work with.
-            setDifficultyLevel(-1); // TODO level out-of-range used to select random level for testing
+            firstTimeDrawn = true;
+            setDifficultyLevel(difficultyLevel);
             getDifficultyLevel();
             
             // Tiles should remain the same size regardless of device orientation
@@ -805,44 +774,35 @@ public class uTurn extends Activity
 
         	initTiles(outerBoarder, numberOfColours);
         	
-            int eachTile = 0;
-            for(int eachTileRow=0; eachTileRow<(tilesPerCol); eachTileRow++) {
-                for(int eachTileCol=0; eachTileCol<tilesPerRow; eachTileCol++) {
+            int totalTiles = tilesPerCol * tilesPerRow;
+            int[] destinationCells = new int[totalTiles];
+            Random random = new Random();
+            for (int tileIndex = 0; tileIndex < totalTiles; tileIndex++) {
+                destinationCells[tileIndex] = tileIndex;
+            }
+            for (int tileIndex = totalTiles - 1; tileIndex > 0; tileIndex--) {
+                int swapIndex = random.nextInt(tileIndex + 1);
+                int destination = destinationCells[tileIndex];
+                destinationCells[tileIndex] = destinationCells[swapIndex];
+                destinationCells[swapIndex] = destination;
+            }
 
-                    // TODO - replace the following with randomly initialised tile colours
-//                    if(eachTileRow == 0)
-//                        colours[0] = Color.DKGRAY;
-//                    else
-//                        colours[0] = Color.RED;
-//                        
-//                    if(eachTileRow == tilesPerCol-1 )
-//                        colours[2] = Color.DKGRAY;
-//                    else
-//                        colours[2] = Color.GREEN;
-//
-//                    
-//                    if(eachTileCol == 0)
-//                        colours[3] = Color.DKGRAY;
-//                    else
-//                        colours[3] = Color.YELLOW;
-//                        
-//                    if(eachTileCol == tilesPerRow-1 )
-//                        colours[1] = Color.DKGRAY;
-//                    else
-//                        colours[1] = Color.BLUE;
-//
-//
-//                    // init tile colours
-//                    tiles[eachTile].initTileColours(colours);                       // TODO - remove this once colours are init from file
+            for (int tileIndex = 0; tileIndex < totalTiles; tileIndex++) {
+                int destination = destinationCells[tileIndex];
+                int row = destination / tilesPerRow;
+                int column = destination % tilesPerRow;
+                tiles[tileIndex].moveTile(
+                        Tile.getSegmentScale() * column + Tile.getSegmentScale() / 2,
+                        Tile.getSegmentScale() * row + Tile.getSegmentScale() / 2);
 
-                    
-                    // move tile to screen relative grid location
-                    tiles[eachTile].moveTile(
-                            Tile.getSegmentScale() * eachTileCol + Tile.getSegmentScale()/2,
-                            Tile.getSegmentScale() * eachTileRow + Tile.getSegmentScale()/2);
-
-                    eachTile++;
+                int rotations = random.nextInt(4);
+                for (int turn = 0; turn < rotations; turn++) {
+                    rotateColours(tileIndex, 1);
                 }
+            }
+
+            if (isBoardSolved()) {
+                rotateColours(0, 1);
             }
         }
 
@@ -1002,7 +962,7 @@ public class uTurn extends Activity
 //            if(initialTileId >= 0)
 //                tiles[initialTileId].initTileColours(colours);      // TODO - remove this once colours are init from file
             
-            boolean showTileIdCheckbox = true, drawRotation = false, asWireframeTile = false;
+            boolean showTileIdCheckbox = false, drawRotation = false, asWireframeTile = false;
 
             if((debugMask & (debugMaskDiscrete)) > 0)
             	asWireframeTile = true; // debug override
@@ -1034,14 +994,16 @@ public class uTurn extends Activity
             // print each inactive tile to screen
             for(int eachTileFromAll=0; eachTileFromAll<(tilesPerCol)*tilesPerRow; eachTileFromAll++)
             {
-            	if(!tiles[eachTileFromAll].getInTransitTileState())
-            		tiles[eachTileFromAll].PrintTile(canvas, colours, showTileIdCheckbox, drawRotation, asWireframeTile);
+                if(!tiles[eachTileFromAll].getInTransitTileState()) {
+                    tiles[eachTileFromAll].PrintTile(canvas, segmentPalette, showTileIdCheckbox, drawRotation, asWireframeTile);
+                }
             }
             // print each InTransit tile to screen after so as to apear on top
             for(int eachTileFromAll=0; eachTileFromAll<(tilesPerCol)*tilesPerRow; eachTileFromAll++)
             {
-            	if(tiles[eachTileFromAll].getInTransitTileState())
-            		tiles[eachTileFromAll].PrintTile(canvas, colours, showTileIdCheckbox, drawRotation, asWireframeTile);
+                if(tiles[eachTileFromAll].getInTransitTileState()) {
+                    tiles[eachTileFromAll].PrintTile(canvas, segmentPalette, showTileIdCheckbox, drawRotation, asWireframeTile);
+                }
             }
 
 

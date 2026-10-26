@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application' version '9.4.0'
+}
+
+android {
+    namespace 'com.crystalwink.uturn'
+    compileSdk 37
+
+    defaultConfig {
+        applicationId 'com.crystalwink.uturn'
+        minSdk 31
+        targetSdk 37
+        versionCode 4
+        versionName '1.1.2'
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            java.exclude 'test/**'
+            res.srcDirs = ['res']
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+dependencies {
+    implementation files('libs/CrystalsCommon.jar')
+    testImplementation 'junit:junit:4.13.2'
+}
