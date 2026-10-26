@@ -69,7 +69,8 @@ public class uTurn extends Activity
     int screenHeight; 
     int screenWidth;
     int insetLeft, insetTop, insetRight, insetBottom;
-    int originX, originY;   // top left of the board within the view
+    int originX, originY;
+    long grabOffsetX, grabOffsetY;   // tile centre minus finger position when a drag starts   // top left of the board within the view
     int difficultyLevel = 1;
     int maxDifficultyLevel = 6;
     private final Handler gameHandler = new Handler(Looper.getMainLooper());
@@ -360,266 +361,92 @@ public class uTurn extends Activity
 		}
 
 		public boolean onTouchEvent(MotionEvent event) {
-            if((debugMask & (debugMaskAll | debugMaskStartEnd)) > 0) {
-                Log.v(TAG, "onTouchEvent() - Start");
-            }
+            float touchX = event.getX() - originX;
+            float touchY = event.getY() - originY;
+
             switch(event.getAction())
             {
-            case MotionEvent.ACTION_DOWN: // event.ACTION_DOWN
-            	
-            	// Demo mode - End on touch
-            	if(autoTestByRandomMove || autoTestByRandomMoveInprogress || autoTestByRandomMoveInitialised)
-            	{
-            		autoTestByRandomMove = false;
-                	//autoTestByRandomMoveInprogress = false;
-                	//autoTestByRandomMoveInitialised = false;
-            	}
-            	else
-            	{
-	            	
-	            	touchPointInitialX = java.lang.Math.round( (event.getX() - originX) );
-	            	touchPointInitialY = java.lang.Math.round( (event.getY() - originY) );
-	
-	            	initialDownTime = event.getDownTime();
-                    accumulatedDownTime = 0;
-	            	
-	                initialTileId = findTouchedTileId((int)touchPointInitialX, (int)touchPointInitialY);
-	                
-	                if(initialTileId >= 0)
-	                {
-	                	// adjust the centre of the selected tile to match the touch point
-	                    endX = touchPointInitialX;
-	                    endY = touchPointInitialY;
-	                	//touchPointInitialX = (int) tiles[initialTileId].getWorldSpaceX();
-	                	//touchPointInitialY = (int) tiles[initialTileId].getWorldSpaceY();
-	                	currentOffsetX = (int) tiles[initialTileId].getWorldSpaceX();
-	                	currentOffsetY = (int) tiles[initialTileId].getWorldSpaceY();
-	//                	tiles[initialTileId].setInTransitTileState(true, touchPointInitialX, touchPointInitialY); // on touch start
-	//		        	tiles[initialTileId].setInTransitTileState(true, 0, 0);
-			        	tiles[initialTileId].setInTransitTileState(true, tiles[initialTileId].getWorldSpaceX(), tiles[initialTileId].getWorldSpaceY());
-			        	
-			            
-	                	// TODO translate tile to finger tip position
-		                if(initialTileId >= 0)
-		                {
-		                	// TODO - following attempt to move selected tile to initial touch point results in mis-aligned tile placement  
-//		                	currentX = autoOffset(COARSE, currentX, (int) tiles[initialTileId].getWorldSpaceX(), (int) touchPointInitialX);
-//		                	currentY = autoOffset(COARSE, currentY, (int) tiles[initialTileId].getWorldSpaceY(), (int) touchPointInitialY);
-		                	currentOffsetX = autoOffset(COARSE, currentOffsetX, (int) touchPointInitialX, (int) tiles[initialTileId].getWorldSpaceX());
-		                	currentOffsetY = autoOffset(COARSE, currentOffsetY, (int) touchPointInitialY, (int) tiles[initialTileId].getWorldSpaceY());
-	
-		                	// try move to touch point
-		            		Log.v(TAG, "onTouchEvent()       id:" + initialTileId + "  move(" + currentOffsetX + "," + currentOffsetY + ")");
-			        		tiles[initialTileId].setInTransitTile((int)(currentOffsetX), (int)(currentOffsetY));
-		                }
-	                    
-	//                    if(touchPointInitialX != endX || touchPointInitialY != endY)
-	//                    {
-	//	                	if(touchPointInitialX >= endX)
-	//	                    	currentX -= currentX - endX;
-	//	                    else
-	//	                    	currentX += endX - currentX;
-	//	                    
-	//	                    if(touchPointInitialY >= endY)
-	//	                    	currentY -= currentY - endY;
-	//	                    else
-	//	                    	currentY += endY - currentY;
-	//
-	//                        // TODO - tile to follow path of touch movement
-	//                        if(initialTileId >= 0)
-	//                        {
-	//		                	tiles[initialTileId].setInTransitTile((int)(currentX), (int)(currentY));
-	//                        }
-	//
-	//                        //Toast.makeText(uTurn.this, "move " + touchPointInitialX + "," + touchPointInitialY + " end " + endX + " " + endY, Toast.LENGTH_SHORT).show();
-	//                    }
-	
-	                    
-	                    
-		                conserveBattery = false;
-		                
-		                //if(soundOn)
-		                	//sound-click
-		                	//playSound(SOUND_CLICK); 
-	
-		                //Toast.makeText(uTurn.this, "start " + touchPointInitialX + "," + touchPointInitialY + " tileId " + initialTileId + " downTime " + accumulatedDownTime, Toast.LENGTH_SHORT).show();
-	                }
-	                else
-	                {
-	    	            Log.v(TAG, "onTouchEvent() action.DOWN: findTouchedTileId returned -1 for initialTileId WARNING");
-	                }
+            case MotionEvent.ACTION_DOWN:
+                // touching the screen ends demo mode
+                if(autoTestByRandomMove || autoTestByRandomMoveInprogress || autoTestByRandomMoveInitialised)
+                {
+                    autoTestByRandomMove = false;
+                    break;
                 }
 
-            	break;
-            case MotionEvent.ACTION_UP: // event.ACTION_UP
-            	performClick();
-            	// Demo mode - Ignore Move events until Demo End Complete End on touch
-            	if(autoTestByRandomMove || autoTestByRandomMoveInprogress || autoTestByRandomMoveInitialised)
-            	{
-    	            Log.v(TAG, "onTouchEvent() action.Move: Ignore UP event while demo mode still running. WARNING");
-                }
-            	else
-            	{
-	                if(initialTileId >= 0)
-	                {
-		            	endX = java.lang.Math.round( (event.getX() - originX) );
-		            	endY = java.lang.Math.round( (event.getY() - originY) );
-		
-                        accumulatedDownTime = event.getEventTime() - initialDownTime;
-
-		                // check that endpoint is within range
-		                swapTileId = findTouchedTileId((int) endX, (int)endY);
-
-		                // if the end point is within the bounds of an existing tile swap. if not return to origin.
-	                    if(swapTileId >= 0)
-	                    {
-	                    	// set end point to center of drop point
-			            	endX = (int) tiles[swapTileId].getWorldSpaceX();
-			            	endY = (int) tiles[swapTileId].getWorldSpaceY();
-	                    }
-	                    else
-	                    {
-	                    	// return to origin
-			            	endX = (int) tiles[initialTileId].getWorldSpaceX();
-			            	endY = (int) tiles[initialTileId].getWorldSpaceY();
-			            	swapTileId = initialTileId;
-	                    }
-		
-	                    currentOffsetX = autoOffset(COARSE, currentOffsetX, (int) currentOffsetX, (int) endX);
-	                	currentOffsetY = autoOffset(COARSE, currentOffsetY, (int) currentOffsetY, (int) endY);
-	                    
-                        // TODO - tile to follow path of touch movement
-                        if(initialTileId >= 0)
-                        {
-		                	tiles[initialTileId].setInTransitTile((int)(currentOffsetX), (int)(currentOffsetY));
-                        }
-
-                        //Toast.makeText(uTurn.this, "move " + touchPointInitialX + "," + touchPointInitialY + " end " + endX + " " + endY, Toast.LENGTH_SHORT).show();
-	                    
-		                // only commit a move action on a ACTION_UP
-		                if(tiles[initialTileId].getWorldSpaceX() != tiles[swapTileId].getWorldSpaceX() || tiles[initialTileId].getWorldSpaceY() != tiles[swapTileId].getWorldSpaceY())
-		                {
-		                    	// swap tiles
-		                    	swapTileWorldPositions(initialTileId, swapTileId);
-                                    applyInprogreeToWorldPositions(initialTileId);
-	
-			                    //Toast.makeText(uTurn.this, "Swap tile:" + initialTileId + " with tile:" + swapTileId, Toast.LENGTH_SHORT).show();
-			                	
-			                    if(soundOn)
-			                        // sound-swoosh
-			                        playSound(SOUND_MOVE); 
-		                }
-
-		                
-		                if(initialTileId >= 0)
-		                {
-                            if (accumulatedDownTime < ROTATION_HOLD_THRESHOLD_MS)
-                            {
-                                direction = 1;   // CW
-                            }
-							else
-                            {
-								direction = -1;  // ACW
-                            }
-		
-                            // if start and end tile are one in the same, rotate
-                            checkAndRotate(initialTileId, swapTileId);
-		                    direction = 0; // no rotate
-		                
-		                    tiles[initialTileId].moveComplete = true;
-                            initialTileId = -1;
-                            uTurn.this.checkForLevelComplete();
-		                }
-		
-		                //Toast.makeText(uTurn.this, "end " + endX + "," + endY + " tileId " + initialTileId + " downTime " + (accumulatedDownTime-initialDownTime), Toast.LENGTH_SHORT).show();
-		
-		                accumulatedDownTime = 0;   // end rotation
-		//                initialTileId = findTouchedTileId((int) endX, (int)endY);
-		//                // findTouchedTileId can return invalid tile id -1 which may cause a force close
-		//                if(initialTileId < 0)
-		//                {
-		//                	initialTileId = 0;
-		//    	            Log.v(TAG, "onTouchEvent() action.UP: findTouchedTileId returned -1 WARNING");
-		//                }
-	                }
-	                else
-	    	            Log.v(TAG, "onTouchEvent() action.UP: findTouchedTileId returned -1 for initialTileId, ignore UP event WARNING");
-	
-	                conserveBattery = true;
-            	}
-
-                break;
-            case MotionEvent.ACTION_MOVE: // event.ACTION_MOVE
-            	if(autoTestByRandomMove || autoTestByRandomMoveInprogress || autoTestByRandomMoveInitialised)
-            	{
-    	            Log.v(TAG, "onTouchEvent() action.Move: Ignore MOVE event while demo mode still running. WARNING");
-                }
-            	else
-            	{
-	                if(initialTileId >= 0)
-	                {
-		                int historicalPoints = event.getHistorySize();
-		
-	                    endX = java.lang.Math.round( (event.getX() - originX) );
-	                    endY = java.lang.Math.round( (event.getY() - originY) );
-
-	                    if(historicalPoints > 0)
-	                    {
-		                    if(touchPointInitialX != endX || touchPointInitialY != endY)
-		                    {
-//			                    currentOffsetX = autoOffset(COARSE, currentOffsetX, (int) touchPointInitialX, (int) endX);
-//			                	currentOffsetY = autoOffset(COARSE, currentOffsetY, (int) touchPointInitialY, (int) endY);
-			                    currentOffsetX = autoOffset(COARSE, currentOffsetX, (int) currentOffsetX, (int) endX);
-			                	currentOffsetY = autoOffset(COARSE, currentOffsetY, (int) currentOffsetY, (int) endY);
-			                    
-		                        // TODO - tile to follow path of touch movement
-		                        if(initialTileId >= 0)
-		                        {
-				                	tiles[initialTileId].setInTransitTile((int)(currentOffsetX), (int)(currentOffsetY));
-		                        }
-		
-		                        //Toast.makeText(uTurn.this, "move " + touchPointInitialX + "," + touchPointInitialY + " end " + endX + " " + endY, Toast.LENGTH_SHORT).show();
-		                    }
-	                    }
-	                    
-	                    direction = 0;             // no rotation
-	                    accumulatedDownTime = 0;   // no rotation
-	                    conserveBattery = false;
-	                }
-	                else
-	    	            Log.v(TAG, "onTouchEvent() action.UP: findTouchedTileId returned -1 for initialTileId, ignore UP event WARNING");
-            	}
-
-                break;
-            case 3: // event.ACTION_CANCLE
-            case 4: // event.ACTION_OUTSIDE
-            default:
-                direction = 0;  // no rotation
+                touchPointInitialX = touchX;
+                touchPointInitialY = touchY;
+                initialDownTime = event.getDownTime();
                 accumulatedDownTime = 0;
-                conserveBattery = true;
+                initialTileId = findTouchedTileId((int) touchX, (int) touchY);
 
                 if(initialTileId >= 0)
                 {
-                	//tiles[initialTileId].setInTransitTile((int) touchPointInitialX, (int) touchPointInitialY);
-                	//tiles[initialTileId].setInTransitTileState(true); // on touch start
-                	//tiles[initialTileId].setInTransitTileState(false, 0, 0); // on touch end
-                	tiles[initialTileId].setInTransitTileState(false); // on touch end
-                	initialTileId = -1;
+                    TilePrintableAndroid grabbed = tiles[initialTileId];
+                    // keep the point of the tile that was touched under the finger
+                    grabOffsetX = grabbed.getWorldSpaceX() - Math.round(touchX);
+                    grabOffsetY = grabbed.getWorldSpaceY() - Math.round(touchY);
+                    grabbed.setInTransitTileState(true, grabbed.getWorldSpaceX(), grabbed.getWorldSpaceY());
+                    conserveBattery = false;
                 }
-
                 break;
 
-            }
-            
-            redrawRequired = true;
-            
-            
-            if((debugMask & (debugMaskAll | debugMaskStartEnd)) > 0)
-            	Log.v(TAG, "onTouchEvent() - End");
+            case MotionEvent.ACTION_MOVE:
+                if(initialTileId >= 0 && !autoTestByRandomMove)
+                {
+                    tiles[initialTileId].setInTransitTile((int) (Math.round(touchX) + grabOffsetX), (int) (Math.round(touchY) + grabOffsetY));
+                    conserveBattery = false;
+                }
+                break;
 
+            case MotionEvent.ACTION_UP:
+                if(initialTileId >= 0)
+                {
+                    performClick();
+                    accumulatedDownTime = event.getEventTime() - initialDownTime;
+                    TilePrintableAndroid dragged = tiles[initialTileId];
+                    int droppedOn = findTouchedTileId((int) touchX, (int) touchY);
+                    float travelled = Math.max(Math.abs(touchX - touchPointInitialX), Math.abs(touchY - touchPointInitialY));
+
+                    // a drop is always snapped to the exact grid cell of the tile it lands on (or back to its own cell)
+                    dragged.setInTransitTileState(false);
+                    if(droppedOn >= 0 && droppedOn != initialTileId)
+                    {
+                        swapTileWorldPositions(initialTileId, droppedOn);
+                        if(soundOn)
+                            playSound(SOUND_MOVE);
+                    }
+                    else if(travelled < Tile.getSegmentScale() / 3f)
+                    {
+                        // a tap or press without dragging rotates the tile
+                        direction = accumulatedDownTime < ROTATION_HOLD_THRESHOLD_MS ? 1 : -1;
+                        checkAndRotate(initialTileId, initialTileId);
+                        direction = 0;
+                    }
+
+                    initialTileId = -1;
+                    conserveBattery = true;
+                    uTurn.this.checkForLevelComplete();
+                }
+                break;
+
+            default: // cancel / outside
+                if(initialTileId >= 0)
+                {
+                    tiles[initialTileId].setInTransitTileState(false);
+                    initialTileId = -1;
+                }
+                direction = 0;
+                accumulatedDownTime = 0;
+                conserveBattery = true;
+                break;
+            }
+
+            redrawRequired = true;
+            invalidate();
             return true;
         }
-        
+
         public UTurnView(Context context)
         {
             super(context);
@@ -857,17 +684,8 @@ public class uTurn extends Activity
             return -1; // not found
         }
         
+        /** Dragged tiles are drawn at the touch point and snap to a grid cell only through a swap, so nothing to apply. */
         private void applyInprogreeToWorldPositions (int tileIdSource) {
-            //tiles[tileIdSource].getWorldSpaceX() = tiles[tileIdSource].xWorldSpaceInTransitRelative;
-            //tiles[tileIdSource].getWorldSpaceY() = tiles[tileIdSource].yWorldSpaceInTransitRelative;
-            
-//            tiles[tileIdSource].setWorldSpaceX( tiles[tileIdSource].xWorldSpaceInTransitFrom );
-//            tiles[tileIdSource].setWorldSpaceY( tiles[tileIdSource].yWorldSpaceInTransitFrom );
-            tiles[tileIdSource].setWorldSpaceX( Math.round(tiles[tileIdSource].getWorldSpaceInTransitTouchPointX()) );
-            tiles[tileIdSource].setWorldSpaceY( Math.round(tiles[tileIdSource].getWorldSpaceInTransitTouchPointY()) );
-            
-            if(tiles[tileIdSource].getWorldSpaceX() == 0 || tiles[tileIdSource].getWorldSpaceY() == 0)
-            	Log.v(TAG, "applyInprogreeToWorldPositions() " + tiles[tileIdSource].getWorldSpaceX() + "," + tiles[tileIdSource].getWorldSpaceY() + " WARNING!");
         }
         
         private void swapTileWorldPositions (int tileIdSource, int tileIdDestination) {
@@ -880,7 +698,6 @@ public class uTurn extends Activity
                 	Log.v(TAG, "swapTileWorldPositions (PRE)  tile id:" + tileIdSource + "(" + tiles[tileIdSource].getWorldSpaceX() + "," + tiles[tileIdSource].getWorldSpaceY() + ") to tile:" + tileIdDestination + "(" + tiles[tileIdDestination].getWorldSpaceX() + "," + tiles[tileIdDestination].getWorldSpaceY() + ")");
 
             	//tiles[tileIdSource].translateTilePath((int) tiles[tileIdDestination].getWorldSpaceX(), (int) tiles[tileIdDestination].getWorldSpaceY());
-            	tiles[tileIdDestination].translateTilePath((int) tiles[tileIdSource].getWorldSpaceX(), (int) tiles[tileIdSource].getWorldSpaceY());
 
             	tempX = tiles[tileIdSource].getWorldSpaceX();
 	            tempY = tiles[tileIdSource].getWorldSpaceY();

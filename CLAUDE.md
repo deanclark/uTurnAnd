@@ -83,6 +83,14 @@ current thinking, decisions and next steps so work can restart exactly where it 
   bar + overflow menu visible, board centred, no crash. A real `adb shell input swipe` between two tiles swapped them.
 - Still unchecked on device: reaching a win (no solver; covered by BoardRulesTest), sound, API 31.
 
+### Checkpoint 4 (tiles drifting off the grid)
+- Reported on the emulator: after moves, tiles overlapped and sat off-grid. Cause: `TilePrintableAndroid` mutated each tile's
+  `Path` with accumulated offsets (rounding + repeated drags drifted). Rewritten to draw every frame from the tile's absolute
+  position (world centre, or touch point while dragged). Touch handling rewritten: drag follows finger (grab offset kept);
+  drop on another tile = exact swap of grid centres; tap/hold without travel = rotate CW/ACW; anything else snaps back.
+  Verified on API 37 with 6 mixed swipes (incl. drop outside board): all tiles on grid.
+- Removed `translateTilePath`/`moveComplete`/in-transit offset code (demo mode uses absolute `setInTransitTile`).
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
