@@ -11,20 +11,21 @@ import android.graphics.Paint;
 //import android.graphics.Path;
 //import android.graphics.Rect;
 //import android.graphics.drawable.shapes.Shape;
+import android.graphics.Insets;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.DisplayMetrics;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
+import android.view.WindowInsets;
 import android.widget.AdapterView;
 import android.widget.GridView;
 import android.widget.Toast;
@@ -67,6 +68,8 @@ public class uTurn extends Activity
     int titleHight = 0;  // title bar height not required in full screen mode
     int screenHeight; 
     int screenWidth;
+    int insetLeft, insetTop, insetRight, insetBottom;
+    int originX, originY;   // top left of the board within the view
     int difficultyLevel = 1;
     int maxDifficultyLevel = 6;
     private final Handler gameHandler = new Handler(Looper.getMainLooper());
@@ -108,6 +111,7 @@ public class uTurn extends Activity
     int autoTestTouchInitialTileId = 0;
     int autoTestTouchSwapTileId   = 0;
     int autoStateId = 0;
+    long demoNextMoveAt = 0;
     
     int currentOffsetX = 0;
     int currentOffsetY = 0;
@@ -141,7 +145,14 @@ public class uTurn extends Activity
         if (soundPool != null) {
             soundPool.release();
         }
-        soundPool = new SoundPool(maxStreams, AudioManager.STREAM_MUSIC, 100); 
+        AudioAttributes attributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+        soundPool = new SoundPool.Builder()
+                .setMaxStreams(maxStreams)
+                .setAudioAttributes(attributes)
+                .build(); 
         soundPoolMap = new HashMap<Integer, Integer>(); 
 //        soundPoolMap.put(SOUND_BACKGROUND, soundPool.load(contextStored, R.raw.background, 1)); 
 //        soundPoolMap.put(SOUND_CLICK, soundPool.load(contextStored, R.raw.click, 1)); 
@@ -152,9 +163,8 @@ public class uTurn extends Activity
    public void playSound(int sound) { 
 	   if(sound == SOUND_ROTATE || sound == SOUND_MOVE)
 	   {
-		    AudioManager mgr = (AudioManager) contextStored.getSystemService(Context.AUDIO_SERVICE); 
-		    int streamVolume = mgr.getStreamVolume(AudioManager.STREAM_MUSIC); 
-		    soundPool.play(soundPoolMap.get(sound), streamVolume, streamVolume, 1, 0, 1f); 
+		    // SoundPool volume is 0..1; the device media volume is applied by the stream itself.
+		    soundPool.play(soundPoolMap.get(sound), 1f, 1f, 1, 0, 1f); 
 	   }
    } 
 
@@ -226,7 +236,7 @@ public class uTurn extends Activity
            tile.getTileColours(cellColors[cellIndex]);
        }
 
-       return BoardRules.isSolved(cellColors, rows, columns, Color.DKGRAY);
+       return BoardRules.isSolved(cellColors, rows, columns, BoardRules.OUTSIDE_EDGE);
    }
 
    private void soundToggle() {
@@ -297,14 +307,13 @@ public class uTurn extends Activity
         	Log.v(TAG, "onCreate() - Start");
         
         super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_NO_TITLE); 
-
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,   WindowManager.LayoutParams.FLAG_FULLSCREEN);     // SDK 1.0 
-        //getWindow().setFlags(WindowManager.LayoutParams.NO_STATUS_BAR_FLAG, WindowManager.LayoutParams.NO_STATUS_BAR_FLAG); 
-        // ******************************************* 
-        setContentView(R.layout.main); 
+        // The action bar is kept (no FEATURE_NO_TITLE / FLAG_FULLSCREEN) so the options menu stays reachable
+        // on devices without a hardware menu key. The playable area comes from the view's own size and window
+        // insets, so it also behaves under the edge-to-edge layout enforced from Android 15.
         setVolumeControlStream(AudioManager.STREAM_MUSIC); 
-        
+        contextStored = this;
+        initSounds();
+
         uturnview = new UTurnView(this);
         
         if(showAllTiles)
@@ -345,23 +354,15 @@ public class uTurn extends Activity
     {
         private Paint paint;
 
-		public void onClick(View v) {
-			Toast.makeText(uTurn.this, "click", Toast.LENGTH_SHORT).show();
+		@Override
+		public boolean performClick() {
+			return super.performClick();
 		}
 
 		public boolean onTouchEvent(MotionEvent event) {
 	        if((debugMask & (debugMaskAll | debugMaskStartEnd)) > 0)
 	        	Log.v(TAG, "onTouchEvent() - Start");
 
-	        // The following delay has been added in an attempt to fix a problem whereby the ACTION_UP event
-	        // arrives before the final touch position is determined, resulting in the tile moving out of
-	        // alignment be a few pixels. 
-            try{
-                Thread.sleep(16);
-            }
-            catch (InterruptedException e){
-            }
-			
             switch(event.getAction())
             {
             case MotionEvent.ACTION_DOWN: // event.ACTION_DOWN
@@ -376,8 +377,8 @@ public class uTurn extends Activity
             	else
             	{
 	            	
-	            	touchPointInitialX = java.lang.Math.round( event.getX() );
-	            	touchPointInitialY = java.lang.Math.round( event.getY() );
+	            	touchPointInitialX = java.lang.Math.round( (event.getX() - originX) );
+	            	touchPointInitialY = java.lang.Math.round( (event.getY() - originY) );
 	
 	            	initialDownTime = event.getDownTime();
                     accumulatedDownTime = 0;
@@ -451,6 +452,7 @@ public class uTurn extends Activity
 
             	break;
             case MotionEvent.ACTION_UP: // event.ACTION_UP
+            	performClick();
             	// Demo mode - Ignore Move events until Demo End Complete End on touch
             	if(autoTestByRandomMove || autoTestByRandomMoveInprogress || autoTestByRandomMoveInitialised)
             	{
@@ -460,8 +462,8 @@ public class uTurn extends Activity
             	{
 	                if(initialTileId >= 0)
 	                {
-		            	endX = java.lang.Math.round( event.getX() );
-		            	endY = java.lang.Math.round( event.getY() );
+		            	endX = java.lang.Math.round( (event.getX() - originX) );
+		            	endY = java.lang.Math.round( (event.getY() - originY) );
 		
                         accumulatedDownTime = event.getEventTime() - initialDownTime;
 
@@ -558,8 +560,8 @@ public class uTurn extends Activity
 	                {
 		                int historicalPoints = event.getHistorySize();
 		
-	                    endX = java.lang.Math.round( event.getX() );
-	                    endY = java.lang.Math.round( event.getY() );
+	                    endX = java.lang.Math.round( (event.getX() - originX) );
+	                    endY = java.lang.Math.round( (event.getY() - originY) );
 
 	                    if(historicalPoints > 0)
 	                    {
@@ -623,6 +625,35 @@ public class uTurn extends Activity
             super(context);
         	contextStored = context;
 
+            setOnApplyWindowInsetsListener((v, windowInsets) -> {
+                Insets bars = windowInsets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                insetLeft = bars.left;
+                insetTop = bars.top;
+                insetRight = bars.right;
+                insetBottom = bars.bottom;
+                relayout();
+                return windowInsets;
+            });
+        }
+
+        @Override
+        protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
+            super.onSizeChanged(width, height, oldWidth, oldHeight);
+            relayout();
+        }
+
+        /** (Re)start the game when the usable area is first known or changes. */
+        private void relayout() {
+            int usableWidth = getWidth() - insetLeft - insetRight;
+            int usableHeight = getHeight() - insetTop - insetBottom - titleHight;
+            if (usableWidth <= 0 || usableHeight <= 0) {
+                return;
+            }
+            if (usableWidth == screenWidth && usableHeight == screenHeight && tiles[0] != null) {
+                return;
+            }
+            screenWidth = usableWidth;
+            screenHeight = usableHeight;
             init();
         }
 
@@ -672,7 +703,7 @@ public class uTurn extends Activity
         // Number of tilesPerCol
     	private void initTiles(boolean outerBoarder, int numberOfColours)
     	{
-            int[][] solvedBoard = BoardRules.createSolvedBoard(tilesPerCol, tilesPerRow, 0, numberOfColours);
+            int[][] solvedBoard = BoardRules.createSolvedBoard(tilesPerCol, tilesPerRow, BoardRules.OUTSIDE_EDGE, numberOfColours);
             for (int tileIndex = 0; tileIndex < solvedBoard.length; tileIndex++) {
                 tiles[tileIndex] = new TilePrintableAndroid(tileIndex, solvedBoard[tileIndex], Tile.getSegmentScale());
             }
@@ -739,14 +770,7 @@ public class uTurn extends Activity
         
         private void init() {
         	
-        	initSounds();
-        	
             paint = new Paint();
-
-            DisplayMetrics dm = new DisplayMetrics(); 
-            getWindowManager().getDefaultDisplay().getMetrics(dm); 
-            screenHeight = dm.heightPixels - titleHight; 
-            screenWidth  = dm.widthPixels;
 
             // Determine number of rows, columns and colours to work with.
             firstTimeDrawn = true;
@@ -756,6 +780,10 @@ public class uTurn extends Activity
             // Tiles should remain the same size regardless of device orientation
             int scale = (int) java.lang.Math.round(  (java.lang.Math.min( (double) (screenWidth / tilesPerRow), (double) (screenHeight) / tilesPerCol)) - 0.5);
             Tile.setSegmentScale(scale);
+
+            // centre the board within the usable area
+            originX = insetLeft + (screenWidth - scale * tilesPerRow) / 2;
+            originY = insetTop + (screenHeight - scale * tilesPerCol) / 2;
 
             // define frame dimensions to load tiles onto
             //tilesPerCol  = (int) java.lang.Math.round((screenHeight / Tile.getSegmentScale()) - 1.5);
@@ -923,6 +951,9 @@ public class uTurn extends Activity
         protected void onDraw(Canvas canvas)
         {
             super.onDraw(canvas);
+            if (tiles[0] == null) {
+                return;  // board not laid out yet
+            }
 
             // custom drawing code here
             // remember: y increases from top to bottom
@@ -932,6 +963,7 @@ public class uTurn extends Activity
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(Color.WHITE);
             canvas.drawPaint(paint);
+            canvas.translate(originX, originY);
             // another way to do this is to use:
             // canvas.drawColor(Color.WHITE);
 
@@ -973,13 +1005,15 @@ public class uTurn extends Activity
 	            {
 	            	if(!autoTestByRandomMoveInitialised)
 	            	{
-	                    try{
-	                        Thread.sleep(3000);
+	                    // pause between demo moves without blocking the UI thread
+	                    long now = SystemClock.uptimeMillis();
+	                    if(demoNextMoveAt == 0)
+	                        demoNextMoveAt = now + 3000;
+	                    if(now >= demoNextMoveAt)
+	                    {
+	                        demoNextMoveAt = 0;
+	                        autoMoveInit();
 	                    }
-	                    catch (InterruptedException e){
-	                    }
-	                    
-	                    autoMoveInit();
 	            	}
 	
 	            	if(autoTestByRandomMoveInitialised && autoTestByRandomMoveInprogress)
@@ -1007,27 +1041,14 @@ public class uTurn extends Activity
             }
 
 
-            try{
-                if(conserveBattery && !autoTestByRandomMove)
-                    Thread.sleep(500);
-                //else
-                //    Thread.sleep(10);
-            }
-            catch (InterruptedException e){
-                
-            }
-            
             firstTimeDrawn = false;
             
-            // TODO - only redraws if something has changed 
-            redrawRequired = true; // debug
-            
-            // invalidate so OnDraw recalled
-            if(redrawRequired)
-            {
-            	invalidate();
-            	redrawRequired = false;
-            }
+            // invalidate so OnDraw recalled; idle redraws are throttled rather than blocking the UI thread
+            if(conserveBattery && !autoTestByRandomMove)
+                postInvalidateDelayed(500);
+            else
+                invalidate();
+            redrawRequired = false;
         }
         
         // if start and end tile are one in the same, rotate

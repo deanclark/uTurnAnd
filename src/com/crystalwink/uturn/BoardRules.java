@@ -1,6 +1,9 @@
 package com.crystalwink.uturn;
 
 public final class BoardRules {
+    /** Palette index that marks a tile edge lying on the outside of the board. */
+    public static final int OUTSIDE_EDGE = 0;
+
     private static final int TOP = 0;
     private static final int RIGHT = 1;
     private static final int BOTTOM = 2;

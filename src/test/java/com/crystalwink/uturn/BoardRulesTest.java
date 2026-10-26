@@ -53,4 +53,47 @@ public class BoardRulesTest {
 
         assertFalse(BoardRules.isSolved(cells, 2, 2, 0));
     }
+
+    @Test
+    public void usesPaletteIndexZeroAsTheOutsideEdge() {
+        // uTurn colours tiles by palette index, so the validator must be driven by OUTSIDE_EDGE (0),
+        // never by an android.graphics.Color value (regression: levels could never be completed).
+        int[][] cells = BoardRules.createSolvedBoard(3, 3, BoardRules.OUTSIDE_EDGE, 5);
+
+        assertTrue(BoardRules.isSolved(cells, 3, 3, BoardRules.OUTSIDE_EDGE));
+        assertFalse(BoardRules.isSolved(cells, 3, 3, -12303292));
+    }
+
+    @Test
+    public void acceptsADifferentValidArrangementOfTheSameTiles() {
+        // A 180 degree turn of a rectangular board is a different arrangement of the very same tiles
+        // that still matches every shared edge and keeps the outside edges outside.
+        int rows = 3;
+        int columns = 4;
+        int[][] cells = BoardRules.createSolvedBoard(rows, columns, BoardRules.OUTSIDE_EDGE, 5);
+        int[][] turned = new int[rows * columns][4];
+        for (int index = 0; index < cells.length; index++) {
+            int[] source = cells[index];
+            int[] destination = turned[cells.length - 1 - index];
+            destination[0] = source[2];
+            destination[1] = source[3];
+            destination[2] = source[0];
+            destination[3] = source[1];
+        }
+
+        assertTrue(BoardRules.isSolved(turned, rows, columns, BoardRules.OUTSIDE_EDGE));
+    }
+
+    @Test
+    public void rejectsABoardWhoseTilesAreNotRotatedToMatch() {
+        int[][] cells = BoardRules.createSolvedBoard(3, 3, BoardRules.OUTSIDE_EDGE, 5);
+        int centre = 4;
+        int saved = cells[centre][0];
+        cells[centre][0] = cells[centre][1];
+        cells[centre][1] = cells[centre][2];
+        cells[centre][2] = cells[centre][3];
+        cells[centre][3] = saved;
+
+        assertFalse(BoardRules.isSolved(cells, 3, 3, BoardRules.OUTSIDE_EDGE));
+    }
 }

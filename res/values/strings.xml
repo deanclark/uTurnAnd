@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="hello">Hello World, uTurn!</string>
     <string name="app_name">uTurn</string>
+    <string name="menu_new_game">New Game</string>
+    <string name="menu_demo_mode">Demo Mode</string>
+    <string name="menu_sound">Sound on/off</string>
+    <string name="menu_settings">Settings</string>
 </resources>

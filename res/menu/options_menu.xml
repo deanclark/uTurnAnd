@@ -2,11 +2,11 @@
 <menu
   xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/new_game" 
-          android:title="New Game" /> 
+          android:title="@string/menu_new_game" /> 
     <item android:id="@+id/demoMode" 
-          android:title="Demo Mode" /> 
+          android:title="@string/menu_demo_mode" /> 
     <item android:id="@+id/soundToggle" 
-          android:title="Sound on/off" /> 
+          android:title="@string/menu_sound" /> 
     <item android:id="@+id/settings" 
-          android:title="Settings" /> 
+          android:title="@string/menu_settings" /> 
 </menu>
