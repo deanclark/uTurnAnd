@@ -91,6 +91,16 @@ current thinking, decisions and next steps so work can restart exactly where it 
   Verified on API 37 with 6 mixed swipes (incl. drop outside board): all tiles on grid.
 - Removed `translateTilePath`/`moveComplete`/in-transit offset code (demo mode uses absolute `setInTransitTile`).
 
+### Checkpoint 5 (demo mode = planned solve)
+- Old random-move demo removed. `DemoSolver` (pure Java, unit tested on all 6 level sizes) searches an assignment for the
+  current board (perimeter first, then inner cells) and returns a plan ordered CORNER -> EDGE -> INNER. Corner tiles only go
+  to corners and edge tiles only to edges, each rotated (one CW quarter turn at a time) until outside edges face the border.
+  Before the first inner tile the demo calls `BoardRules.isBorderValid` and toasts "Border verified" (stops if invalid).
+- `uTurn.UTurnView.demoTick()` is the executor (phases NEXT/DRAG/ROTATE, driven from onDraw, no sleeps); touching the screen
+  or the menu item stops it. Verified on API 37: ring placed first, then inner tiles, "Level 1 complete!" shown (first
+  real win on a device).
+- Tests: 13 in uTurn (BoardRulesTest 7, DemoSolverTest 6).
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).

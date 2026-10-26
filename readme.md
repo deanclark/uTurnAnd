@@ -24,6 +24,7 @@ Controls
 * Tap a tile to rotate it clockwise by one segment; press and hold (about half a second) to rotate it anticlockwise.
 * Drag a tile onto another tile to swap them.
 * The options menu (action bar) has New Game, Demo Mode, Sound and Settings.
+* Demo Mode solves the board for you: corners first (rotated into place), then the edge tiles, then it verifies the border, then the inner tiles. Touch the screen to stop it.
 
 Winning
 -----------

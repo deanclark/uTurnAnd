@@ -64,15 +64,51 @@ public final class BoardRules {
                     return false;
                 }
 
-                if (column + 1 < columns && segments[RIGHT] != cells[cellIndex + 1][LEFT]) {
+                if (column + 1 < columns && (cells[cellIndex + 1] == null || segments[RIGHT] != cells[cellIndex + 1][LEFT])) {
                     return false;
                 }
-                if (row + 1 < rows && segments[BOTTOM] != cells[cellIndex + columns][TOP]) {
+                if (row + 1 < rows && (cells[cellIndex + columns] == null || segments[BOTTOM] != cells[cellIndex + columns][TOP])) {
                     return false;
                 }
             }
         }
 
+        return true;
+    }
+
+    /**
+     * True when every border cell has its outside edges on the border (and nowhere else) and neighbouring border
+     * cells match. Inner cells are not looked at, so this can be checked before any inner tile is placed.
+     * A cell that is null counts as not yet placed and makes the border invalid.
+     */
+    public static boolean isBorderValid(int[][] cells, int rows, int columns, int outsideEdge) {
+        if (cells == null || rows <= 0 || columns <= 0 || cells.length != rows * columns) {
+            return false;
+        }
+        for (int row = 0; row < rows; row++) {
+            for (int column = 0; column < columns; column++) {
+                if (row != 0 && row != rows - 1 && column != 0 && column != columns - 1) {
+                    continue;   // inner cell
+                }
+                int cellIndex = row * columns + column;
+                int[] segments = cells[cellIndex];
+                if (segments == null || segments.length < 4
+                        || (segments[TOP] == outsideEdge) != (row == 0)
+                        || (segments[RIGHT] == outsideEdge) != (column == columns - 1)
+                        || (segments[BOTTOM] == outsideEdge) != (row == rows - 1)
+                        || (segments[LEFT] == outsideEdge) != (column == 0)) {
+                    return false;
+                }
+                boolean rightIsBorder = column + 1 < columns && (row == 0 || row == rows - 1);
+                if (rightIsBorder && (cells[cellIndex + 1] == null || segments[RIGHT] != cells[cellIndex + 1][LEFT])) {
+                    return false;
+                }
+                boolean belowIsBorder = row + 1 < rows && (column == 0 || column == columns - 1);
+                if (belowIsBorder && (cells[cellIndex + columns] == null || segments[BOTTOM] != cells[cellIndex + columns][TOP])) {
+                    return false;
+                }
+            }
+        }
         return true;
     }
 }

@@ -99,27 +99,17 @@ public class uTurn extends Activity
     //////////////
     // Auto Test
     //////////////
-    boolean autoTestByRandomMove = false; // test enable / disable, may also be used in demo mode.
-    boolean autoTestByRandomMoveInprogress = false;
-    boolean autoTestByRandomMoveInitialised = false;
-    int autoTestIncrement = 8;  // to reduce trace, this will be changed to 10 if autoTestByRandomMove=true and debugMaskAutoMove enabled.
-    int autoTestTouchPointInitialX = 0;
-    int autoTestTouchPointInitialY = 0;
-    int autoTestTouchPointSwapX = 0;
-    int autoTestTouchPointSwapY = 0;
-    int autoTestCurrentOffsetX = 0;
-    int autoTestCurrentOffsetY = 0;
-    int autoTestTouchInitialTileId = 0;
-    int autoTestTouchSwapTileId   = 0;
-    int autoStateId = 0;
-    long demoNextMoveAt = 0;
+    boolean demoOn = false;
+    java.util.List<DemoSolver.Placement> demoPlan;
+    int demoIndex, demoPhase, demoFrame, demoMovingTile = -1, demoOccupant = -1;
+    boolean demoBorderVerified;
+    long demoNextAt;
+    long demoFromX, demoFromY, demoToX, demoToY;
     
     int currentOffsetX = 0;
     int currentOffsetY = 0;
 
     // mode
-    public static final boolean FINE = true; 
-    public static final boolean COARSE = false; 
 
     /*
      * SOUND
@@ -255,19 +245,10 @@ public class uTurn extends Activity
    }
    
    private void demoMode() {
-	   if(autoTestByRandomMove)
-	   {
-		   autoTestByRandomMove = false;
-		   Toast.makeText(uTurn.this, "Demo Off", Toast.LENGTH_SHORT).show();
-	   }
-	   else
-	   {
-		   autoTestByRandomMove = true;
-		   Toast.makeText(uTurn.this, "Demo On", Toast.LENGTH_SHORT).show();
-	   }
-	   
-  }
-   
+	   if(uturnview != null)
+		   uturnview.demoToggle();
+   }
+
    private void settings() {
 		Toast.makeText(uTurn.this, "Settings", Toast.LENGTH_SHORT).show();
   }
@@ -368,9 +349,10 @@ public class uTurn extends Activity
             {
             case MotionEvent.ACTION_DOWN:
                 // touching the screen ends demo mode
-                if(autoTestByRandomMove || autoTestByRandomMoveInprogress || autoTestByRandomMoveInitialised)
+                if(demoOn)
                 {
-                    autoTestByRandomMove = false;
+                    demoStop();
+                    Toast.makeText(uTurn.this, "Demo Off", Toast.LENGTH_SHORT).show();
                     break;
                 }
 
@@ -392,7 +374,7 @@ public class uTurn extends Activity
                 break;
 
             case MotionEvent.ACTION_MOVE:
-                if(initialTileId >= 0 && !autoTestByRandomMove)
+                if(initialTileId >= 0 && !demoOn)
                 {
                     tiles[initialTileId].setInTransitTile((int) (Math.round(touchX) + grabOffsetX), (int) (Math.round(touchY) + grabOffsetY));
                     conserveBattery = false;
@@ -816,32 +798,9 @@ public class uTurn extends Activity
             if((debugMask & (debugMaskDiscrete)) > 0)
             	asWireframeTile = true; // debug override
             
-            if(!firstTimeDrawn)
-            {
-            	if(autoTestByRandomMove || autoTestByRandomMoveInprogress || autoTestByRandomMoveInitialised)
-	            {
-	            	if(!autoTestByRandomMoveInitialised)
-	            	{
-	                    // pause between demo moves without blocking the UI thread
-	                    long now = SystemClock.uptimeMillis();
-	                    if(demoNextMoveAt == 0)
-	                        demoNextMoveAt = now + 3000;
-	                    if(now >= demoNextMoveAt)
-	                    {
-	                        demoNextMoveAt = 0;
-	                        autoMoveInit();
-	                    }
-	            	}
-	
-	            	if(autoTestByRandomMoveInitialised && autoTestByRandomMoveInprogress)
-	            	{
-		                autoMove();
-	            	}
-	            	
-                    redrawRequired = true;
-	            }
-            }
-            	
+            if(demoOn)
+                demoTick();
+
             // print each inactive tile to screen
             for(int eachTileFromAll=0; eachTileFromAll<(tilesPerCol)*tilesPerRow; eachTileFromAll++)
             {
@@ -861,7 +820,7 @@ public class uTurn extends Activity
             firstTimeDrawn = false;
             
             // invalidate so OnDraw recalled; idle redraws are throttled rather than blocking the UI thread
-            if(conserveBattery && !autoTestByRandomMove)
+            if(conserveBattery && !demoOn)
                 postInvalidateDelayed(500);
             else
                 invalidate();
@@ -886,244 +845,173 @@ public class uTurn extends Activity
         }
         
         
-        private void autoMoveInit() {
-        	
-            if((debugMask & (debugMaskAll | debugMaskAutoMove)) > 0)
-            	autoTestIncrement = 15;
-            if((debugMask & (debugMaskDiscrete)) > 0)
-            	autoTestIncrement = 5;
-
-            // the following tile selection does not account for touch points outside the range of the playing area.
-            // TODO use entire screen dimension
-            autoTestTouchPointInitialX      = (int) (Math.random() * (tilesPerRow * Tile.getSegmentScale()));
-            autoTestTouchPointInitialY      = (int) (Math.random() * (tilesPerCol * Tile.getSegmentScale()));
-            autoTestTouchPointSwapX         = (int) (Math.random() * (tilesPerRow * Tile.getSegmentScale()));
-            autoTestTouchPointSwapY   		= (int) (Math.random() * (tilesPerCol * Tile.getSegmentScale()));
-            
-            // debug
-            if((debugMask & debugMaskAutoMove) > 0)
-            {
-//	            autoTestTouchPointInitialX      = 70;
-//	            autoTestTouchPointInitialY      = 9;
-//	            autoTestTouchPointSwapX   = 53;
-//	            autoTestTouchPointSwapY   = 53;
-            }
-
-            autoTestTouchInitialTileId = findTouchedTileId(autoTestTouchPointInitialX, autoTestTouchPointInitialY);
-            autoTestTouchSwapTileId   = findTouchedTileId(autoTestTouchPointSwapX, autoTestTouchPointSwapY);
-
-            if((debugMask & (debugMaskAll | debugMaskAutoMove)) > 0)
-            	Log.v(TAG, "autoMoveInit() tile id:" + autoTestTouchInitialTileId + 
-            			" rnd(" + autoTestTouchPointInitialX + "," + autoTestTouchPointInitialY +
-            			" ctr(" + tiles[autoTestTouchInitialTileId].getWorldSpaceX() + "," + tiles[autoTestTouchInitialTileId].getWorldSpaceY() +
-            			") to tile:" + autoTestTouchSwapTileId + 
-            			" rnd(" + autoTestTouchPointSwapX + "," + autoTestTouchPointSwapY +
-            			" ctr(" + tiles[autoTestTouchSwapTileId].getWorldSpaceX() + "," + tiles[autoTestTouchSwapTileId].getWorldSpaceY() + ")");
-
-            // debug
-//            if((debugMask & debugMaskAutoMove) > 0)
-//            {
-//            	if(autoStateId > 0)
-//            	{
-//                	autoTestTouchInitialTileId = 4;
-//                	autoStateId = 0;
-//            	}
-//            	else
-//            	{
-//                	autoTestTouchInitialTileId = 7;
-//                	autoStateId++;
-//            	}
-//
-//        		autoTestTouchSwapTileId   = 14;
-//            }
-
-            // findTouchedTileId can return invalid tile id -1 which may cause a force close
-            if(autoTestTouchInitialTileId >= 0 && autoTestTouchSwapTileId >= 0)
-            {
-            	boolean moveFromTileCentre = false;  // set false will simulate a random touch rather than exact centre of tile
-            	
-	            if(autoTestTouchInitialTileId != autoTestTouchSwapTileId)
-	            {
-	            	if(moveFromTileCentre)
-	            	{
-			            // adjust start points to coincide with existing tile centres
-			            autoTestTouchPointInitialX = (int) tiles[autoTestTouchInitialTileId].getWorldSpaceX();
-			            autoTestTouchPointInitialY = (int) tiles[autoTestTouchInitialTileId].getWorldSpaceY();
-	            	}
-		            // adjust end points to coincide with existing tile centres
-//		            autoTestTouchPointSwapX   = (int) tiles[autoTestTouchSwapTileId].getWorldSpaceX();
-//		            autoTestTouchPointSwapY   = (int) tiles[autoTestTouchSwapTileId].getWorldSpaceY();
-
-		            autoTestCurrentOffsetX = (int) tiles[autoTestTouchInitialTileId].getWorldSpaceX();
-		            autoTestCurrentOffsetY = (int) tiles[autoTestTouchInitialTileId].getWorldSpaceY();
-		        	
-		        	autoTestByRandomMoveInitialised = true;
-		        	autoTestByRandomMoveInprogress = true;
-		        	
-		        	tiles[autoTestTouchInitialTileId].setInTransitTileState(true, tiles[autoTestTouchInitialTileId].getWorldSpaceX(), tiles[autoTestTouchInitialTileId].getWorldSpaceY());
-
-		        	if(!moveFromTileCentre)
-		        	{
-	                	// translate tile to touch position
-		                if(autoTestTouchInitialTileId >= 0 && autoTestTouchSwapTileId >=0)
-		                {
-		                	// TODO - following attempt to move selected tile to initial touch point results in mis-aligned tile placement  
-		                	autoTestCurrentOffsetX = autoOffset(COARSE, autoTestCurrentOffsetX, autoTestTouchPointInitialX, (int) tiles[autoTestTouchInitialTileId].getWorldSpaceX());
-		                	autoTestCurrentOffsetY = autoOffset(COARSE, autoTestCurrentOffsetY, autoTestTouchPointInitialY, (int) tiles[autoTestTouchInitialTileId].getWorldSpaceY());
-//		                	autoTestOffsetX = autoOffset(COARSE, autoTestOffsetX, (int) tiles[autoTestTouchInitialTileId].getWorldSpaceX(), autoTestTouchPointInitialX);
-//		                	autoTestOffsetY = autoOffset(COARSE, autoTestOffsetY, (int) tiles[autoTestTouchInitialTileId].getWorldSpaceY(), autoTestTouchPointInitialY);
-
-		                	// move to touch point
-		            		Log.v(TAG, "autoMoveInit()      id:" + autoTestTouchInitialTileId + "  move(" + autoTestCurrentOffsetX + "," + autoTestCurrentOffsetY + ")");
-			        		tiles[autoTestTouchInitialTileId].setInTransitTile((int)(autoTestCurrentOffsetX), (int)(autoTestCurrentOffsetY));
-		                }
-		        	}
-	
-		            if((debugMask & (debugMaskAll | debugMaskAutoMove)) > 0)
-		            	Log.v(TAG, "autoMoveInit() tile id:" + autoTestTouchInitialTileId + "(" + autoTestTouchPointInitialX + "," + autoTestTouchPointInitialY + ") to tile:" + autoTestTouchSwapTileId + "(" + tiles[autoTestTouchSwapTileId].getWorldSpaceX() + "," + tiles[autoTestTouchSwapTileId].getWorldSpaceY() + ")");
-	            }
-	            else
-	            {
-	            	// Rotate selected tile
-					direction = 1;   // CW
-	            	checkAndRotate(autoTestTouchInitialTileId, autoTestTouchSwapTileId);
-					direction = 0;   // none
-
-		            if((debugMask & (debugMaskAll | debugMaskAutoMove)) > 0)
-		            	Log.v(TAG, "autoMoveInit() tile id:" + autoTestTouchInitialTileId + "(" + tiles[autoTestTouchInitialTileId].getWorldSpaceX() + "," + tiles[autoTestTouchInitialTileId].getWorldSpaceY() + ") Rotated - END");
-
-		            autoTestTouchInitialTileId = -1;
-	            	autoTestTouchSwapTileId = -1;
-
-	            	autoTestByRandomMoveInprogress = false;
-	            	autoTestByRandomMoveInitialised = false;
-
-	            }
-	            
-	            if((debugMask & (debugMaskAll | debugMaskAutoMove)) > 0)
-	            {
-		            Toast.makeText(uTurn.this, "autoMoveInit tile " + autoTestTouchInitialTileId + " -> " + autoTestTouchSwapTileId + " " + autoTestTouchPointInitialX + "," + autoTestTouchPointInitialY + " to " + autoTestTouchPointSwapX + " " + autoTestTouchPointSwapY, Toast.LENGTH_SHORT).show();
-		            Log.v(TAG, "autoMoveInit() tile id:" + autoTestTouchInitialTileId + "(" + autoTestTouchPointInitialX + "," + autoTestTouchPointInitialY + ") to tile:" + autoTestTouchSwapTileId + "(" + autoTestTouchPointSwapX + "," + autoTestTouchPointSwapY + ") - END");
-	            }
-            }
-        }
-        
-   
-        private void autoMove() {
-        	// reached destination - ACTION_UP
-            if((autoTestCurrentOffsetX == autoTestTouchPointSwapX) && (autoTestCurrentOffsetY == autoTestTouchPointSwapY))
-            {
-                if(autoTestCurrentOffsetX == Math.round(tiles[autoTestTouchSwapTileId].getWorldSpaceX()) && autoTestCurrentOffsetY == Math.round(tiles[autoTestTouchSwapTileId].getWorldSpaceY()))
-            		Log.v(TAG, "autoMove() (STUCK2) tile id:" + autoTestTouchInitialTileId + "(" + autoTestCurrentOffsetX + "," + autoTestCurrentOffsetY + ") to tile:" + autoTestTouchSwapTileId + "(" + autoTestTouchPointSwapX + "," + autoTestTouchPointSwapY + ")");
-                	
-                if(autoTestCurrentOffsetX != Math.round(tiles[autoTestTouchSwapTileId].getWorldSpaceX()) || autoTestCurrentOffsetY != Math.round(tiles[autoTestTouchSwapTileId].getWorldSpaceY()))
-                {
-	                if(tiles[autoTestTouchInitialTileId].getWorldSpaceX() != tiles[autoTestTouchSwapTileId].getWorldSpaceX() || tiles[autoTestTouchInitialTileId].getWorldSpaceY() != tiles[autoTestTouchSwapTileId].getWorldSpaceY())
-	                {
-	                	autoTestCurrentOffsetX = autoOffset(COARSE, autoTestCurrentOffsetX, autoTestTouchPointInitialX, (int) tiles[autoTestTouchSwapTileId].getWorldSpaceX());
-	                	autoTestCurrentOffsetY = autoOffset(COARSE, autoTestCurrentOffsetY, autoTestTouchPointInitialY, (int) tiles[autoTestTouchSwapTileId].getWorldSpaceY());
-	
-	                	if((debugMask & (debugMaskAll | debugMaskAutoMove)) > 0)
-	                		Log.v(TAG, "autoMove() (FINAL) tile id:" + autoTestTouchInitialTileId + "(" + autoTestCurrentOffsetX + "," + autoTestCurrentOffsetY + ") to tile:" + autoTestTouchSwapTileId + "(" + autoTestTouchPointSwapX + "," + autoTestTouchPointSwapY + ")");
-	    	
-	    	        	tiles[autoTestTouchInitialTileId].setInTransitTile((int)(autoTestCurrentOffsetX), (int)(autoTestCurrentOffsetY));
-	    	
-	                }
-	                else
-	            		Log.v(TAG, "autoMove() (STUCK3) tile id:" + autoTestTouchInitialTileId + "(" + autoTestCurrentOffsetX + "," + autoTestCurrentOffsetY + ") to tile:" + autoTestTouchSwapTileId + "(" + autoTestTouchPointSwapX + "," + autoTestTouchPointSwapY + ")");
-                }
-                else
-            		Log.v(TAG, "autoMove() (STUCK) tile id:" + autoTestTouchInitialTileId + "(" + autoTestCurrentOffsetX + "," + autoTestCurrentOffsetY + ") to tile:" + autoTestTouchSwapTileId + "(" + autoTestTouchPointSwapX + "," + autoTestTouchPointSwapY + ")");
-            }
-            else
-            {
-	            	
-            	// Final Move as tile positioned at centre of drop point
-	            if(autoTestCurrentOffsetX == Math.round(tiles[autoTestTouchSwapTileId].getWorldSpaceX()) && autoTestCurrentOffsetY == Math.round(tiles[autoTestTouchSwapTileId].getWorldSpaceY()))
-	            {
-	            	swapTileWorldPositions(autoTestTouchInitialTileId, autoTestTouchSwapTileId);
-	            	applyInprogreeToWorldPositions(autoTestTouchInitialTileId);
-	
-	            	autoTestByRandomMoveInprogress = false;
-	            	autoTestByRandomMoveInitialised = false;
-	            	
-		        	tiles[autoTestTouchInitialTileId].setInTransitTileState(false);
-		        	tiles[autoTestTouchSwapTileId].setInTransitTileState(false);
-		        	
-		            if((debugMask & (debugMaskAll | debugMaskAutoMove)) > 0)
-		            	Log.v(TAG, "autoMove() tile id:" + autoTestTouchInitialTileId + "(" + tiles[autoTestTouchInitialTileId].getWorldSpaceX() + "," + tiles[autoTestTouchInitialTileId].getWorldSpaceY() + ") to tile:" + autoTestTouchSwapTileId + "(" + tiles[autoTestTouchSwapTileId].getWorldSpaceX() + "," + tiles[autoTestTouchSwapTileId].getWorldSpaceY() + ") - END");
-	
-		            autoTestTouchInitialTileId = -1;
-		        	autoTestTouchSwapTileId = -1;
-		        	
-//	                try{
-//	                    Thread.sleep(10);
-//		            }
-//		            catch (InterruptedException e){
-//		            }
-	            }
-	            else
-	            {
-		            
-		        	//Log.v(TAG, "autoMove() (PRE)  tile id:" + autoTestTouchInitialTileId + "(" + autoTestOffsetX + "," + autoTestOffsetY + ") to tile:" + autoTestTouchSwapTileId + "(" + autoTestTouchPointSwapX + "," + autoTestTouchPointSwapY + ")");
-		            if(autoTestTouchInitialTileId >= 0 && autoTestTouchSwapTileId >=0)
-		            {
-		            	autoTestCurrentOffsetX = autoOffset(FINE, autoTestCurrentOffsetX, autoTestTouchPointInitialX, autoTestTouchPointSwapX);
-		            	autoTestCurrentOffsetY = autoOffset(FINE, autoTestCurrentOffsetY, autoTestTouchPointInitialY, autoTestTouchPointSwapY);
-		
-		            	if((debugMask & (debugMaskAll | debugMaskAutoMove)) > 0)
-		            		Log.v(TAG, "autoMove() (POST) tile id:" + autoTestTouchInitialTileId + "(" + autoTestCurrentOffsetX + "," + autoTestCurrentOffsetY + ") to tile:" + autoTestTouchSwapTileId + "(" + autoTestTouchPointSwapX + "," + autoTestTouchPointSwapY + ")");
-			
-			        	tiles[autoTestTouchInitialTileId].setInTransitTile((int)(autoTestCurrentOffsetX), (int)(autoTestCurrentOffsetY));
-			
-		            }
-		            
-//		            try{
-//		                    Thread.sleep(10);
-//		            }
-//		            catch (InterruptedException e){
-//		                
-//		            }
-	            }
-            }
-        }
-
-        /**
-         * 
-         * Offset by FINE mode autoTestIncrement or in COARSE mode the difference between currentPoint and destinationPoint
-         * The currentOffset must be supplied as this is adjusted and returned. X and Y axis are offset independently by calling this function once for each axis.
-         *  
-         * @param mode - FINE(true), COURSE(false)
-         * @param currentOffset
-         * @param currentPoint
-         * @param destinationPoint
-         * @return
+        /*
+         * DEMO MODE
+         * Solves the board from its current state using DemoSolver: corners first (each turned so its outside edges face
+         * the corner), then the edge tiles (outside edge towards the border), then the border is verified, and only
+         * then are the inner tiles placed.
          */
-        public int autoOffset(boolean mode, int currentOffset, int currentPoint, int destinationPoint) {
-    		
+        private static final int DEMO_IDLE = 0, DEMO_NEXT = 1, DEMO_DRAG = 2, DEMO_ROTATE = 3;
+        private static final int DEMO_DRAG_FRAMES = 24;
 
-    		if(mode == FINE)
-        	{
-        		Log.v(TAG, "autoOffset() (FINE)  currentOffset:" + currentOffset + " move(" + currentPoint + "->" + destinationPoint + ")");
-        		
-		    	if(currentPoint >= destinationPoint)
-		    		currentOffset -= Math.min(autoTestIncrement, currentOffset - destinationPoint);
-		        else
-		        	currentOffset += Math.min(autoTestIncrement, destinationPoint - currentOffset);
-        	}
-        	else
-        	{
-        		Log.v(TAG, "autoOffset() (COARSE) currentOffset:" + currentOffset + " move(" + currentPoint + "->" + destinationPoint + ")");
+        private void demoToggle() {
+            if (demoOn) {
+                demoStop();
+                Toast.makeText(uTurn.this, "Demo Off", Toast.LENGTH_SHORT).show();
+            } else {
+                demoStart();
+            }
+        }
 
-        		if(currentPoint >= destinationPoint)
-    	    		currentOffset -= currentOffset - destinationPoint;
-    	        else
-    	        	currentOffset += destinationPoint - currentOffset;
-        		
-        	}
-	        
-    		Log.v(TAG, "autoOffset() (POST)   currentOffset:" + currentOffset + " move(" + currentPoint + "->" + destinationPoint + ")");
-	        return currentOffset;
+        private void demoStart() {
+            if (tiles[0] == null || levelAdvancePending) {
+                return;
+            }
+            int cellCount = tilesPerRow * tilesPerCol;
+            int[][] colourSets = new int[cellCount][];
+            for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
+                colourSets[tileIndex] = currentColours(tileIndex);
+            }
+            demoPlan = DemoSolver.solve(colourSets, tilesPerCol, tilesPerRow, BoardRules.OUTSIDE_EDGE);
+            if (demoPlan == null) {
+                Toast.makeText(uTurn.this, "Demo cannot solve this board", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            demoIndex = 0;
+            demoBorderVerified = false;
+            demoPhase = DEMO_NEXT;
+            demoNextAt = SystemClock.uptimeMillis() + 800;
+            demoOn = true;
+            conserveBattery = false;
+            Toast.makeText(uTurn.this, "Demo On", Toast.LENGTH_SHORT).show();
+            invalidate();
+        }
+
+        private void demoStop() {
+            if (demoMovingTile >= 0) {
+                tiles[demoMovingTile].setInTransitTileState(false);
+                demoMovingTile = -1;
+            }
+            demoOn = false;
+            demoPhase = DEMO_IDLE;
+            demoPlan = null;
+            conserveBattery = true;
+            invalidate();
+        }
+
+        private int[] currentColours(int tileIndex) {
+            int[] colours = new int[Tile.segmentCount];
+            tiles[tileIndex].getTileColours(colours);
+            return colours;
+        }
+
+        /** Index of the tile sitting in the grid cell, or -1. */
+        private int tileInCell(int row, int column) {
+            int scale = Tile.getSegmentScale();
+            for (int tileIndex = 0; tileIndex < tilesPerRow * tilesPerCol; tileIndex++) {
+                int tileColumn = (int) Math.round((tiles[tileIndex].getWorldSpaceX() - scale / 2f) / scale);
+                int tileRow = (int) Math.round((tiles[tileIndex].getWorldSpaceY() - scale / 2f) / scale);
+                if (tileRow == row && tileColumn == column) {
+                    return tileIndex;
+                }
+            }
+            return -1;
+        }
+
+        private boolean isDemoBorderValid() {
+            int[][] cells = new int[tilesPerRow * tilesPerCol][];
+            for (int row = 0; row < tilesPerCol; row++) {
+                for (int column = 0; column < tilesPerRow; column++) {
+                    int tileIndex = tileInCell(row, column);
+                    cells[row * tilesPerRow + column] = tileIndex < 0 ? null : currentColours(tileIndex);
+                }
+            }
+            return BoardRules.isBorderValid(cells, tilesPerCol, tilesPerRow, BoardRules.OUTSIDE_EDGE);
+        }
+
+        private void demoTick() {
+            long now = SystemClock.uptimeMillis();
+            if (now < demoNextAt || demoPlan == null) {
+                return;
+            }
+            int scale = Tile.getSegmentScale();
+
+            switch (demoPhase) {
+            case DEMO_NEXT: {
+                if (demoIndex >= demoPlan.size()) {
+                    demoStop();
+                    checkForLevelComplete();
+                    return;
+                }
+                DemoSolver.Placement placement = demoPlan.get(demoIndex);
+
+                // all corner and edge tiles are placed: verify the border before touching any inner tile
+                if (placement.kind == DemoSolver.Kind.INNER && !demoBorderVerified) {
+                    if (!isDemoBorderValid()) {
+                        Toast.makeText(uTurn.this, "Demo stopped: border is not valid", Toast.LENGTH_LONG).show();
+                        demoStop();
+                        return;
+                    }
+                    demoBorderVerified = true;
+                    Toast.makeText(uTurn.this, "Border verified", Toast.LENGTH_SHORT).show();
+                    demoNextAt = now + 1200;
+                    return;
+                }
+
+                int occupant = tileInCell(placement.row, placement.column);
+                if (occupant == placement.tile) {
+                    demoPhase = DEMO_ROTATE;
+                    return;
+                }
+                demoMovingTile = placement.tile;
+                demoOccupant = occupant;
+                demoFromX = tiles[demoMovingTile].getWorldSpaceX();
+                demoFromY = tiles[demoMovingTile].getWorldSpaceY();
+                demoToX = scale * placement.column + scale / 2;
+                demoToY = scale * placement.row + scale / 2;
+                demoFrame = 0;
+                tiles[demoMovingTile].setInTransitTileState(true, demoFromX, demoFromY);
+                demoPhase = DEMO_DRAG;
+                return;
+            }
+            case DEMO_DRAG: {
+                demoFrame++;
+                float progress = Math.min(1f, demoFrame / (float) DEMO_DRAG_FRAMES);
+                tiles[demoMovingTile].setInTransitTile(
+                        Math.round(demoFromX + (demoToX - demoFromX) * progress),
+                        Math.round(demoFromY + (demoToY - demoFromY) * progress));
+                if (progress >= 1f) {
+                    tiles[demoMovingTile].setInTransitTileState(false);
+                    if (demoOccupant >= 0) {
+                        swapTileWorldPositions(demoMovingTile, demoOccupant);
+                    }
+                    if (soundOn) {
+                        playSound(SOUND_MOVE);
+                    }
+                    demoMovingTile = -1;
+                    demoPhase = DEMO_ROTATE;
+                    demoNextAt = now + 350;
+                }
+                return;
+            }
+            case DEMO_ROTATE: {
+                DemoSolver.Placement placement = demoPlan.get(demoIndex);
+                if (DemoSolver.turnsToReach(currentColours(placement.tile), placement.colours) == 0) {
+                    demoIndex++;
+                    demoPhase = DEMO_NEXT;
+                    demoNextAt = now + 450;
+                    return;
+                }
+                if (soundOn) {
+                    playSound(SOUND_ROTATE);
+                }
+                rotateColours(placement.tile, 1);   // one clockwise quarter turn at a time
+                demoNextAt = now + 380;
+                return;
+            }
+            default:
+                return;
+            }
         }
 
     }
