@@ -55,7 +55,7 @@ Items already done are marked ✅.
 |---|---|---|
 | **Settings screen** (the menu entry is a placeholder): theme, sound, music, haptics, left-handed layout, reset progress | Home for every option above | M |
 | **Accessibility**: TalkBack descriptions for tiles ("top red, right blue..."), larger touch targets, reduce-motion switch | Reaches more players; required for good store ratings | M |
-| **Run the demo solver off the UI thread** and add a progress indicator on big boards | The solve can take a second or two on the biggest boards | S |
+| ✅ **Demo and hint solves run off the UI thread**. Still to add: a progress indicator on big boards | Done | - |
 | **Pause on interruption**: stop the timer when a call arrives or the app is backgrounded | Fair timing | S |
 | **Localisation** (strings are already in resources) | Wider audience | S per language |
 | **Tablet and foldable layouts** and Chrome OS support | Portrait lock is already removed | M |

@@ -90,6 +90,11 @@ public class uTurn extends Activity
     private int musicSetting;   // 0 off, 1 soothing, 2 focus, 3 intense
     private GameState restoredBoard;   // board from a previous run of the app, used once by the next init()
     private final Handler gameHandler = new Handler(Looper.getMainLooper());
+    // Hint and demo solves can take about a second on big boards, so they run on this thread. A result is only used
+    // when solveToken is unchanged, i.e. the board has not been touched, undone or replaced since the solve started.
+    private final java.util.concurrent.ExecutorService solver = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private int solveToken;
+    private boolean solving;
     private Runnable advanceLevelTask;
     private boolean levelAdvancePending;
     
@@ -320,7 +325,7 @@ public class uTurn extends Activity
    }
 
    private boolean gameIdle() {
-       return uturnview != null && !levelAdvancePending && !demoOn && initialTileId < 0;
+       return uturnview != null && !levelAdvancePending && !demoOn && !solving && initialTileId < 0;
    }
 
    @Override
@@ -554,6 +559,8 @@ public class uTurn extends Activity
         if (advanceLevelTask != null) {
             gameHandler.removeCallbacks(advanceLevelTask);
         }
+        solveToken++;
+        solver.shutdownNow();
         if (soundPool != null) {
             soundPool.release();
         }
@@ -584,6 +591,7 @@ public class uTurn extends Activity
                     break;
                 }
 
+                cancelSolve();
                 hintUntil = 0;
                 touchPointInitialX = touchX;
                 touchPointInitialY = touchY;
@@ -811,6 +819,7 @@ public class uTurn extends Activity
             // Determine number of rows, columns and colours to work with.
             firstTimeDrawn = true;
             applyLevelRules();
+            cancelSolve();
             history.clear();
             hintUntil = 0;
             hintsUsed = 0;
@@ -1109,6 +1118,7 @@ public class uTurn extends Activity
                     playSound(SOUND_ROTATE);
                 }
             }
+            cancelSolve();
             hintUntil = 0;
             conserveBattery = false;
             invalidate();
@@ -1129,22 +1139,56 @@ public class uTurn extends Activity
             }
         }
 
+        private void cancelSolve() {
+            solveToken++;
+            solving = false;
+        }
+
+        /** Colours by tile and the cell each tile is in, read on the UI thread for the solver. */
+        private int[][] boardColours() {
+            int cellCount = tilesPerRow * tilesPerCol;
+            int[][] colours = new int[cellCount][];
+            for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
+                colours[tileIndex] = currentColours(tileIndex);
+            }
+            return colours;
+        }
+
+        private int[] boardCells() {
+            int cellCount = tilesPerRow * tilesPerCol;
+            int[] cellOfTile = new int[cellCount];
+            int scale = Tile.getSegmentScale();
+            for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
+                int column = (int) Math.round((tiles[tileIndex].getWorldSpaceX() - scale / 2f) / scale);
+                int row = (int) Math.round((tiles[tileIndex].getWorldSpaceY() - scale / 2f) / scale);
+                cellOfTile[tileIndex] = row * tilesPerRow + column;
+            }
+            return cellOfTile;
+        }
+
         /** Highlight the next useful move for a few seconds. */
         private void showHint() {
             if (!gameIdle()) {
                 return;
             }
-            int cellCount = tilesPerRow * tilesPerCol;
-            int[][] colours = new int[cellCount][];
-            int[] cellOfTile = new int[cellCount];
-            int scale = Tile.getSegmentScale();
-            for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
-                colours[tileIndex] = currentColours(tileIndex);
-                int column = (int) Math.round((tiles[tileIndex].getWorldSpaceX() - scale / 2f) / scale);
-                int row = (int) Math.round((tiles[tileIndex].getWorldSpaceY() - scale / 2f) / scale);
-                cellOfTile[tileIndex] = row * tilesPerRow + column;
-            }
-            HintFinder.Hint hint = HintFinder.find(colours, cellOfTile, tilesPerCol, tilesPerRow, BoardRules.OUTSIDE_EDGE);
+            final int[][] colours = boardColours();
+            final int[] cellOfTile = boardCells();
+            final int rows = tilesPerCol;
+            final int columns = tilesPerRow;
+            final int token = ++solveToken;
+            solving = true;
+            solver.execute(() -> {
+                HintFinder.Hint hint = HintFinder.find(colours, cellOfTile, rows, columns, BoardRules.OUTSIDE_EDGE);
+                gameHandler.post(() -> {
+                    if (token == solveToken) {
+                        solving = false;
+                        presentHint(hint);
+                    }
+                });
+            });
+        }
+
+        private void presentHint(HintFinder.Hint hint) {
             if (hint == null) {
                 Toast.makeText(uTurn.this, R.string.hint_none, Toast.LENGTH_SHORT).show();
                 return;
@@ -1191,7 +1235,9 @@ public class uTurn extends Activity
         private static final int DEMO_DRAG_FRAMES = 24;
 
         private void demoToggle() {
-            if (demoOn) {
+            if (solving) {
+                cancelSolve();   // the plan is still being worked out: abandon it
+            } else if (demoOn) {
                 demoStop();
                 Toast.makeText(uTurn.this, "Demo Off", Toast.LENGTH_SHORT).show();
             } else {
@@ -1200,17 +1246,29 @@ public class uTurn extends Activity
         }
 
         private void demoStart() {
-            if (tiles[0] == null || levelAdvancePending) {
+            if (tiles[0] == null || levelAdvancePending || solving) {
                 return;
             }
             history.clear();   // demo moves are not undoable
             hintUntil = 0;
-            int cellCount = tilesPerRow * tilesPerCol;
-            int[][] colourSets = new int[cellCount][];
-            for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
-                colourSets[tileIndex] = currentColours(tileIndex);
-            }
-            demoPlan = DemoSolver.solve(colourSets, tilesPerCol, tilesPerRow, BoardRules.OUTSIDE_EDGE);
+            final int[][] colourSets = boardColours();
+            final int rows = tilesPerCol;
+            final int columns = tilesPerRow;
+            final int token = ++solveToken;
+            solving = true;
+            solver.execute(() -> {
+                java.util.List<DemoSolver.Placement> plan = DemoSolver.solve(colourSets, rows, columns, BoardRules.OUTSIDE_EDGE);
+                gameHandler.post(() -> {
+                    if (token == solveToken) {
+                        solving = false;
+                        demoBegin(plan);
+                    }
+                });
+            });
+        }
+
+        private void demoBegin(java.util.List<DemoSolver.Placement> plan) {
+            demoPlan = plan;
             if (demoPlan == null) {
                 Toast.makeText(uTurn.this, "Demo cannot solve this board", Toast.LENGTH_SHORT).show();
                 return;

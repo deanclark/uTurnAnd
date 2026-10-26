@@ -118,7 +118,7 @@ current thinking, decisions and next steps so work can restart exactly where it 
   Verified in landscape: board kept, action bar + overflow menu follow the device orientation.
 - `FEATURES.md` = feature wishlist (themes, patterns/pictures, music, hints, daily puzzle, sharing...). Music sources to check
   licences of: FreePD, OpenGameArt CC0, Pixabay, incompetech (CC BY). Keep a CREDITS file when added.
-- Known: demo solve runs on the UI thread (up to ~1 s on level 9+); landscape board is just smaller, not re-laid out.
+- Known: landscape board is just smaller, not re-laid out. (Demo solve used to run on the UI thread; fixed in checkpoint 14.)
 
 ### Checkpoint 8 (easier early levels, soft colours, edge-colour options)
 - Colour schedule (`LevelRules.COLOURS`): levels 1-9 use 7,7,6,6,5,5,4,4,4 interior colours, 4 until level 14, then 3
@@ -178,6 +178,14 @@ current thinking, decisions and next steps so work can restart exactly where it 
   diamond, plus, ring, cross, hollow square, two dots; outside edge (0) has none; symbols are upright whatever the tile's turn.
 - Theme dialog has a third entry "Patterns (colour-blind friendly)". Verified on API 37 (3x3 board shows all symbols).
 - Tests: 40 in uTurn.
+
+### Checkpoint 14 (solvers off the UI thread)
+- Hint and demo solves run on a single-thread `ExecutorService` (`uTurn.solver`); the result is posted back to the main thread and
+  used only if `solveToken` is unchanged. `cancelSolve()` (token++) is called by board init, touch down, undo/redo and the Demo menu
+  item, so a stale plan never reaches a changed board. `solving` disables the menu items (`gameIdle`) while a solve is in flight.
+  The inputs (colours, cells) are snapshotted on the UI thread; `onDestroy` shuts the executor down.
+- Verified on API 37: hint-only solve of level 2 (9 hints) and demo solve of level 3 both completed, no crash in logcat.
+- Tests: 40 in uTurn (the threading is Activity code, covered by the device run only).
 
 ## Obsolete / to-modernise list (Android 12+)
 
