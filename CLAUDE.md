@@ -239,6 +239,25 @@ current thinking, decisions and next steps so work can restart exactly where it 
   at the border; at 20000 iterations ~160 locked with a few gaps where nothing fits (E2 cannot be completed).
 - Crystals tests now 85 (the same 45 old stubs fail). Crystals commit 3703d85; crystalscommon untouched so the jar is unchanged.
 
+### Checkpoint 18 (Crystals: hole repair, stubs removed)
+- Removed the old empty Crystals tests: 42 `fail("Not yet implemented")` stubs in FrameStructureTest plus 20 assertion-free smoke tests
+  (TileTest, FrameStructureTest). 23 tests remain, all pass (`./gradlew test` in Crystals is green for the first time).
+- The user's 6258-iteration screenshot: top-left corner now right; holes inside the square. They asked for holes that cannot be filled to be
+  resolved by deciding which locked tile(s) to unlock.
+- `GraphPanel.repairHole` (6 tries per iteration): pick an empty cell beside the crystal (15% of picks look at a corner cell). 1) a free tile
+  matching all neighbours -> place it. 2) else `findCandidates` with up to 2 conflicting neighbours (also offers tiles sitting in other cells):
+  evict the conflicting neighbours (unlock, set free off the board), place the candidate, try to refill every vacated cell with an exact
+  fit; keep if placed tiles did not go down (zero-gain swaps with probability 0.3, to explore), else `rollback()` restores positions,
+  orientations, locks and membership. The placed count therefore never decreases.
+- Bugs found with the headless harness on the way: (a) tiles shoved up against the crystal by the resolver were taken for crystal tiles because
+  they happened to be within 2 px of a cell centre -> explicit `crystalMember[]`; (b) `relocateOverlappingTiles` could move a crystal tile off the
+  grid on a lock-level tie -> crystal tiles are immovable there and in `resolveTileOverlaps`; (c) wire growth could pick an unlocked crystal tile as
+  the tile to place, or land on one, and the resolver then shoved it exactly one cell sideways -> growth only uses free tiles and never lands on a
+  crystal tile. Crystal tiles also get `tile.lock = LOCKED` for display (red outline) and so Scramble/Shake skip them.
+- Result (24 headless runs, 6000 iterations, 256 tiles): 216-226 placed (was ~150), 0 mismatched neighbours, 0 overlaps, all 4 corners, 51-56 of
+  56 edge tiles on the border. About 33 holes remain; getting past ~225 would need deeper search (3+ neighbours, chains of swaps).
+- Crystals commit after 3703d85 (see git log); crystalscommon untouched so the jar is unchanged.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
