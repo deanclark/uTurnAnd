@@ -223,6 +223,22 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Still to do: the user should re-run `./gradlew run` in Crystals and compare. Ideas: interior tiles could also drift into the square; the
   crystal grows slowly late on (locks decay); tiles drawn over the Iterations/Locks text.
 
+### Checkpoint 17 (Crystals floating mode, after the user's 4099-iteration screenshot)
+- User saw: the corner seed not in the corner of the board, a half-cell-offset block of grey-edged tiles in the interior, and locked tiles
+  touching with mismatched edges.
+- Likely cause of the first two (not reproduced in the headless run, where the panel is sized up front): the grid origin was recomputed from
+  `getSize()` every call, and an applet's panel has no size until its window is laid out, so tiles locked early sat on a different grid from
+  tiles locked later. Fix: `anchoredLeft/Top` fixed at seed time, no growth until the panel is at least 3 tiles wide and high
+  (`hasUsableSize`), changing Large (`setTileScale`) releases all locks and re-anchors. Test: panel created at 0x0, relaxed 200 times
+  (no locks), then sized: crystal on the grid and the corner tile in the top-left cell.
+- Mismatches: a new tile only had to match the parent it grew from. `placeAcrossWire` now also requires every tile already on a neighbouring
+  cell (`tileOnCell`, within 2 px of the cell centre, locked or not) to match edge to edge. `growCrystal` tries all wires of the chosen segment
+  (random start) until one fits, which fills far more cells. Test: every touching locked pair matches (0 mismatches), all locked tiles are
+  inside the board, still one connected crystal.
+- Result (3000 iterations, 6 runs): 130-150 locked tiles in one crystal, 0 mismatches, 0 overlaps, 3-4/4 corner tiles and 53-56/56 edge tiles
+  at the border; at 20000 iterations ~160 locked with a few gaps where nothing fits (E2 cannot be completed).
+- Crystals tests now 85 (the same 45 old stubs fail). Crystals commit 3703d85; crystalscommon untouched so the jar is unchanged.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
