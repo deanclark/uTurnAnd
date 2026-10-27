@@ -258,6 +258,22 @@ current thinking, decisions and next steps so work can restart exactly where it 
   56 edge tiles on the border. About 33 holes remain; getting past ~225 would need deeper search (3+ neighbours, chains of swaps).
 - Crystals commit after 3703d85 (see git log); crystalscommon untouched so the jar is unchanged.
 
+### Checkpoint 19 (Crystals: lock count, early holes) - user's 6194-iteration screenshot
+- User: "Locks in Use" fell from 222 (~2000 its) to ~100 (3000) and 75 (6194) although the board stayed full (34 free tiles outside = 222 placed);
+  holes next to the corner tile appeared early and stayed.
+- Lock count: expected from the ORIGINAL design (lock levels count down every iteration, plus an extra decrease on tiles with < 3 active
+  neighbours) but misleading now that crystal membership is explicit. Crystal tiles are no longer decayed (both `decreaseLock` sites skip
+  `crystalMember`), only `repairHole` unlocks them, so locks in use == tiles placed; the status text also shows "Placed: n of 256".
+- Early holes: `pickHole` now follows fill order 75% of the time (border ring clockwise from the top-left corner, then interior row by row;
+  first empty cell with a crystal neighbour), 15% a corner cell, rest random; `HOLE_ATTEMPTS` 6 -> 30 per iteration (the applet only runs ~5
+  iterations/s so this is cheap). Headless: ~210 placed by iteration 100 and 217-221 by 300 (was ~140 and ~200); the top-left 6x6 area has the same
+  hole density as elsewhere (2-6 of 36) but they are found and tried from the start.
+- Tried and dropped (measured with 3 runs each): forward checking before placing a tile (reject if an empty neighbour cell would have no
+  candidate): slower growth and left border cells empty; unlocking up to 3 neighbours instead of 2: no better (220 vs 222-227).
+- Remaining holes (~25-35) are hard: all four neighbours placed and no free tile fits. A local search that sometimes accepts a swap losing one
+  tile and keeps the best board is the obvious next step if more tiles are wanted.
+- Test: 1500 iterations, 24 runs without a failure (218-231 placed), also asserts locks in use == tiles placed.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
