@@ -274,6 +274,21 @@ current thinking, decisions and next steps so work can restart exactly where it 
   tile and keeps the best board is the obvious next step if more tiles are wanted.
 - Test: 1500 iterations, 24 runs without a failure (218-231 placed), also asserts locks in use == tiles placed.
 
+### Checkpoint 20 (Crystals: local search) - user's 6736-iteration screenshot (226 of 256 placed, regular scatter of boxed-in holes)
+- `GraphPanel` local search (simulated annealing around `repairHole`): greedy for the first 300 iterations, then in cooling cycles of 1500
+  iterations a swap that loses 1-2 tiles is accepted with probability exp(gained / T), T = 0.3 -> 0 linearly (nothing below 0.05). The best board
+  seen is snapshotted by `saveBest` just before the first worsening move (current tiles overridden by the undo `memory`, so it is the pre-move
+  board); `advanceSearch` (once per iteration) tracks `bestPlaced`, moves T along the schedule and calls `restoreBest` at each cycle start when
+  the current board is worse; `restoreBest` also runs the overlap resolver so wanderers are pushed off the restored cells.
+- Tuning (3 runs per setting, 7000-9000 iterations, best board): without annealing 222-225; T0 0.15: 223-227; 0.22: 226-233; 0.3: 228-234; 0.5: 228-231;
+  0.8 and 1.2: 222-224 (too hot). Losing up to 1 / 2 / 3 tiles and cycles of 700 / 1500 made no clear difference. Chosen: T0 0.3, 2 tiles, 1500.
+- Visible effect: the placed count dips during a cycle (the current board is deliberately worse) and snaps back to the best at each cycle start;
+  the status text reads "Placed: n (best b)". Cost ~3 ms per iteration headless.
+- Test `localSearchFindsABetterBoardAndRestoringItIsValid` (5000 iterations: best >= 226, worsening swaps accepted, restored board valid). Crystals
+  suite: 24 tests, all pass. Crystalscommon untouched.
+- Next if more is wanted: more repair attempts per iteration, smarter moves (evicting 3 neighbours only at higher temperature), several restarts
+  keeping the global best, or a different fill order. 231-234 of 256 (~90%) is where this approach sits.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
