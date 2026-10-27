@@ -302,6 +302,16 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Future work (also added to the Crystals readme): save the best-fitting boards to a file that can be re-imported to seed a run or just to view
   it later.
 
+### Checkpoint 22 (Crystals: best boards are written to files, user: "random luck could result in a solution one day ... disappointing to lose it")
+- `BoardRecord` (new, pure): text format (tiles/columns/rows/placed/saved, one line per tile `id column row orientation top right bottom left`,
+  tile-id grid in comments), `save` (never overwrites), `read/parse` (validates), `bestSaved(dir)` (largest `best-<placed>-*.txt`).
+- `GraphPanel.recordIfBest` writes a board when it beats the best file in `best-boards/` (`-Dcrystals.boards=`), if >= 85% of the tiles: when a
+  worsening move leaves a best board (`saveBest`), when a run ends (`foldRunIntoGlobal`), and at most every 100 iterations while improving; a
+  complete board (256) is written immediately. `importBoard(file)` / `-Dcrystals.import=file` (build.gradle forwards `crystals.*` properties to
+  `run`) puts a saved board on the grid, locks it, and the search carries on from it.
+- Tests: BoardRecordTest (4) and FloatingLayoutDiagnosticsTest.bestBoardsAreSavedAndCanBeImportedOntoAFreshPanel; tests write to a temp dir.
+  Crystals suite: 30 tests, all pass. Not run in the live applet yet - run `./gradlew run`, look for "Saved n of 256 tiles to ..." in the console.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
@@ -320,8 +330,7 @@ current thinking, decisions and next steps so work can restart exactly where it 
    adaptive icon + xhdpi/xxhdpi; real settings screen; delete Eclipse leftovers and the dead GridView path.
 4. ~~Crystals: finish or delete the 45 stub tests.~~ Done: removed (checkpoint 18).
 5. Optional: AGP 9.4.1 / Gradle 9.8.2 bump in uTurn.
-6. Crystals: capture the best-fitting results to a file (tile id, cell, orientation, score) that can be re-imported later, to seed a run with a
-   known good board or to view it again; e.g. write `best-<placed>-<date>.txt` whenever a run beats the best so far, and add an Import action.
+6. ~~Crystals: capture the best-fitting results to a file~~ Done (checkpoint 22). Still open: an in-app Import action / read-only viewer.
 7. Crystals: a deeper search than ~233 of 256 (more repair attempts per iteration, unlocking three neighbours only when hot, restarts that perturb
    the best board instead of clearing it); keep free tiles out of the status text at the bottom right.
 
