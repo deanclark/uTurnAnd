@@ -289,6 +289,19 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Next if more is wanted: more repair attempts per iteration, smarter moves (evicting 3 neighbours only at higher temperature), several restarts
   keeping the global best, or a different fill order. 231-234 of 256 (~90%) is where this approach sits.
 
+### Checkpoint 21 (Crystals: fresh runs / restarts) - user's 3231-iteration screenshot (226 placed, best 230: mid-cycle dip as designed)
+- Restarts implemented as independent runs: `GREEDY_ITERATIONS` 300 + `cyclesPerRun` (4) x 1500 cooling cycles; at the end of a run `startFreshRun`
+  folds its best into `globalBest`, evicts the whole crystal and starts again (`freshRuns` = 2 times); when the last run ends `continueFromBest`
+  puts the best board of all runs back and annealing carries on from it. `Board` snapshots replace the old best arrays; `bestPlaced()` is the
+  best over all runs (status text "Placed: n (best b)").
+- Measured (3 runs each): 3 fresh runs of 3300 iterations (13200 total) 229-232 vs continuous 232-233 (restarts worse); 2 fresh runs of 6300
+  (18900 total) 232-233 vs continuous 231-232 (about +0.7, within noise). Kept because the last run ends on the best board rather than below it,
+  at the price of wiping the board twice (it regrows to ~215 within 100 iterations). Honest conclusion: restarts do not materially beat continuous
+  annealing at this budget; the ceiling of this method is ~233 of 256.
+- New test `freshRunsKeepTheBestBoardAndTheLastRunEndsOnIt`. Crystals suite: 25 tests, all pass.
+- Future work (also added to the Crystals readme): save the best-fitting boards to a file that can be re-imported to seed a run or just to view
+  it later.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
@@ -305,7 +318,11 @@ current thinking, decisions and next steps so work can restart exactly where it 
 2. Eyeball Crystals floating mode on the desktop (`./gradlew run` in Crystals): tiles should butt, not overlap, at both Large settings.
 3. uTurn: replace the colour palette with patterns/pictures per segment (viral appeal); celebration animation; share action;
    adaptive icon + xhdpi/xxhdpi; real settings screen; delete Eclipse leftovers and the dead GridView path.
-4. Crystals: finish or delete the 45 `fail("Not yet implemented")` stub tests.
+4. ~~Crystals: finish or delete the 45 stub tests.~~ Done: removed (checkpoint 18).
 5. Optional: AGP 9.4.1 / Gradle 9.8.2 bump in uTurn.
+6. Crystals: capture the best-fitting results to a file (tile id, cell, orientation, score) that can be re-imported later, to seed a run with a
+   known good board or to view it again; e.g. write `best-<placed>-<date>.txt` whenever a run beats the best so far, and add an Import action.
+7. Crystals: a deeper search than ~233 of 256 (more repair attempts per iteration, unlocking three neighbours only when hot, restarts that perturb
+   the best board instead of clearing it); keep free tiles out of the status text at the bottom right.
 
 Done so far: items 1-4 of the original backlog (backtrack oscillation, floating overlap, non-floating wireframe/fill, jar sync).
