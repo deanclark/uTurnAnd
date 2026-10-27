@@ -201,6 +201,28 @@ current thinking, decisions and next steps so work can restart exactly where it 
   tiles are drawn on top of the Iterations / Locks text at the bottom right. Not yet investigated; possible causes are the
   relocate step flinging tiles away from their wire-matched spots and the wire pull being too weak to bring tiles back together.
 
+### Checkpoint 16 (Crystals floating mode: why tiles scattered, and corner/edge bias)
+- Headless harness (`FloatingLayoutDiagnosticsTest`, Crystals): Crystal is an Applet so it is allocated with `sun.misc.Unsafe` without its
+  constructor, then tiles are loaded/wired like `mainInit` and `relax()` is called in a loop (works headless, ~1 ms per iteration).
+- Causes of the scatter: (1) the old `relax()` placement put each new tile ~12 px off the grid and used a hand-written orientation table that
+  rarely made the matching edges touch; (2) the first lock used `Tile.LOCKED` = -1, which the lock decay (`decreaseLock` removes a lock at <= 0)
+  released at once, so the crystal never had an anchor; (3) my checkpoint 15 overlap resolver then pushed/relocated misplaced tiles to arbitrary
+  spots; (4) it also made `relax()` 30-100 ms per iteration (a linear `isLocked` scan per tile pair per pass) - now cached, 60x faster.
+- New growth (`GraphPanel.seedCrystal/growCrystal`): playing area = ceil(sqrt(n)) columns, centred on the panel, cell = tile scale. A corner tile
+  is locked into cell (0,0) (lock level n*n, not Tile.LOCKED) with greys facing top/left. Each step: random locked tile, random segment, random
+  matching wire; the tile at the far end goes into the adjacent cell, oriented so the two matching segments touch (segment s of a tile with
+  orientation o faces world side (s+o)%4), only when the cell is inside the square, holds no locked tile, and the tile fits (greys face outside
+  only: corner tiles fit corners, edge tiles the border). Tiles are not placed over locked tiles, so locked tiles are always on the grid.
+- Bias (`biasTowardsBorder`): unlocked corner tiles drift to a corner and edge tiles to a side (chosen by `id % 4`, so the 4 corner tiles and
+  the 56 edge tiles are shared out evenly), grey edges turned outwards; the pull stops within 2 tiles of the target so it never fights the overlap
+  resolver. Interior tiles are left alone. The "everyone yields after 20 passes" rule from checkpoint 15 was removed.
+- Result over 6 headless runs (3000 iterations, 256 tiles): one connected crystal of 140-160 locked tiles, 0 overlaps, 3-4 of 4 corner tiles and
+  55-56 of 56 edge tiles at the border; ~60% of touching locked pairs match on both sides. By 12000 iterations ~200 tiles are locked.
+  Rendered PNGs checked by eye: a tidy grid growing from the top-left corner with border tiles hovering around it.
+- Not under crystalscommon, so `CrystalsCommon.jar` is unchanged. Crystals tests: 84 (45 failing are the same old stubs).
+- Still to do: the user should re-run `./gradlew run` in Crystals and compare. Ideas: interior tiles could also drift into the square; the
+  crystal grows slowly late on (locks decay); tiles drawn over the Iterations/Locks text.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
