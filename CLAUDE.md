@@ -325,6 +325,21 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Tests: changingTheTileSizeKeepsTheCrystal, buildingATileFromTheFrameKeepsTheDisplayedTileSize; the harness overlap check uses the real tile size.
   Crystals suite: 32 tests, all pass.
 
+### Checkpoint 24 (Crystals: frame mode saves and imports best frames, user request)
+- `FrameStructure.verifyFrame` collected nothing before; it printed "Tile id, col, row, orientation" to the console for each tile when the count
+  had improved (and one verify behind). It now records every verified tile (`verifiedEntries`, cleared when the count restarts, so the list always
+  equals `totalTilesVerified`) and `recordIfBest` writes a `BoardRecord` to `best-boards/frame-<placed>-<date>.txt` when it beats the best
+  `frame-*` file (>= 85% of the tiles = 218 of 256). The console dump of each tile is gone; the "Total verified" summary stays.
+- Same file format as floating mode (0-based column/row, orientation o: tile segment s faces side (s+o)%4, colours top/right/bottom/left), plus a
+  `mode=` line; `BoardRecord` is public, `FLOATING`/`FRAME` file prefixes keep the two records of "best" separate, `minimumFraction` is settable.
+- `FrameStructure.importBoard(record)` sets each tile's real edge colours as `LOCKED_HINT`, marks the tile used and does the hint bookkeeping
+  (`tilePlacementOrder2`, `gridCellFullyPlacedUp`); a tile that is unknown, repeated, outside the frame or disagrees with an edge already set is skipped.
+  `GraphPanel` imports `-Dcrystals.import` into the frame once, the first time frame mode draws. NOTE: `hintToFrame` (old hint files) still sets
+  hard-coded colours 6/6/12/18 for tile 139 whatever the tile; it is not used by the new path.
+- Test: aSavedBoardImportsIntoTheFrameAndVerifiedFramesAreWrittenToAFile (4x4 frame, one tile at orientation 1, verify, file written, modes kept
+  apart). NOT tried in the live applet: frame mode with a 218+ board, or the interaction of imported hint tiles with the backtracking
+  (which may undo them in file order). Crystals suite: 33 tests, all pass.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
