@@ -196,7 +196,10 @@ current thinking, decisions and next steps so work can restart exactly where it 
   to the panel; finally `relocateOverlappingTiles` moves the weaker tile of any pair still overlapping to the nearest free spot.
   Test `denseClumpOfMostlyLockedTilesEndsUpWithoutOverlaps` (240 tiles) passes in ~0.2 s. At 300 tiles in the same clump (57% of the
   panel area) a few overlaps remain: the free-spot search is lattice based.
-- Needs the user to re-run `./gradlew run` in Crystals and look again; the wire pull can still drag tiles together between iterations.
+- User re-ran it (Large + Floating, 2623 iterations, 240 locks): NO overlapping tiles any more, so the overlap bug is closed.
+  Observed instead: the tiles are spread over the whole panel as many small groups with gaps, not one growing crystal, and a few
+  tiles are drawn on top of the Iterations / Locks text at the bottom right. Not yet investigated; possible causes are the
+  relocate step flinging tiles away from their wire-matched spots and the wire pull being too weak to bring tiles back together.
 
 ## Obsolete / to-modernise list (Android 12+)
 
