@@ -312,6 +312,19 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Tests: BoardRecordTest (4) and FloatingLayoutDiagnosticsTest.bestBoardsAreSavedAndCanBeImportedOntoAFreshPanel; tests write to a temp dir.
   Crystals suite: 30 tests, all pass. Not run in the live applet yet - run `./gradlew run`, look for "Saved n of 256 tiles to ..." in the console.
 
+### Checkpoint 23 (Crystals: import verified live; Large keeps the board; Floating off/on keeps the tile size)
+- User ran `./gradlew run "-Dcrystals.import=best-boards/best-230-....txt"` (quote the -D argument in PowerShell, which otherwise splits at the
+  dot): "Imported ..." and 230 tiles placed - the import works live. Saving also worked live: 12 files from best-218 to best-230 after ~9000 iterations.
+- Bug 1: ticking Large reset the board to 0 (`setTileScale` released every lock). Now, when a crystal exists, `setTileScale` keeps it: each member
+  is snapped to its cell and re-placed at the new pixel size (the run/global best boards are converted the same way). Without snapping, a 1 px
+  drift tolerated at 15 px became 2 px at 28 px and tiles stopped counting as settled.
+- Bug 2: Floating off then on left tiles overlapping until Large was toggled. Cause: frame mode's `FrameStructure.defineTileFromFrame` builds
+  temporary `Tile`s at scale 15, and the `Tile` constructor sets the shared static `Tile.segmentScale`, so the grid became 15 px while the tiles
+  were drawn 28 px. It now restores the displayed scale after constructing the tile. (`crystalscommon`'s constructor still has that side effect;
+  jar unchanged.)
+- Tests: changingTheTileSizeKeepsTheCrystal, buildingATileFromTheFrameKeepsTheDisplayedTileSize; the harness overlap check uses the real tile size.
+  Crystals suite: 32 tests, all pass.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
