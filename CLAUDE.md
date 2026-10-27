@@ -187,6 +187,17 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Verified on API 37: hint-only solve of level 2 (9 hints) and demo solve of level 3 both completed, no crash in logcat.
 - Tests: 40 in uTurn (the threading is Activity code, covered by the device run only).
 
+### Checkpoint 15 (Crystals floating mode, from the user's screenshot)
+- The user ran floating mode (Large + Floating, ~2600 iterations, 230 locks): tiles were stacked on each other in a big clump, so
+  the checkpoint 2 overlap fix was not enough. Cause: `resolveTileOverlaps` made only 4 push passes, which cannot settle a dense clump.
+  Reproduced headlessly (240-300 tiles, most locked, packed into one clump: hundreds of overlapping pairs left).
+- Fix in Crystals `GraphPanel` (commit after 96a81ed; NOT under crystalscommon, so the jar is unchanged): push up to 60 passes and stop when
+  a pass finds nothing; after 20 passes everyone yields (a weak tile can be trapped between stronger ones); clamp every tile
+  to the panel; finally `relocateOverlappingTiles` moves the weaker tile of any pair still overlapping to the nearest free spot.
+  Test `denseClumpOfMostlyLockedTilesEndsUpWithoutOverlaps` (240 tiles) passes in ~0.2 s. At 300 tiles in the same clump (57% of the
+  panel area) a few overlaps remain: the free-spot search is lattice based.
+- Needs the user to re-run `./gradlew run` in Crystals and look again; the wire pull can still drag tiles together between iterations.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
