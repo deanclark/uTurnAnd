@@ -340,6 +340,19 @@ current thinking, decisions and next steps so work can restart exactly where it 
   apart). NOT tried in the live applet: frame mode with a 218+ board, or the interaction of imported hint tiles with the backtracking
   (which may undo them in file order). Crystals suite: 33 tests, all pass.
 
+### Checkpoint 25 (Crystals frame mode: ids, 110-tile threshold, permanent hint tiles in the files) - user request
+- Id's tick box did nothing in frame mode: `drawFrame(g, palate, wireframe, showIds)` now writes each verified tile's id centred in its cell
+  (red for hint tiles). Only when the cell is >= 16 px, i.e. with Large ticked (6 px cells are too small to read).
+- Frame files are written from 110 tiles (`BoardRecord.minimumFrameTiles`; floating keeps 85% of the tiles) because frame mode fills without gaps
+  but struggles to get past the hint tile in the centre.
+- Permanent hint tiles in the file: `BoardRecord.Entry.hint` and a ninth column `hint` (1 = permanent, 0 = ordinary; files without it still load).
+  Hint tiles are written first (`139 8 7 1 6 6 12 18 1` = tile 139 at column 8 row 7). `hintToFrame` records its tile (cell, orientation and the
+  colours it really set), the verified board marks hint cells, `importBoard` places hint entries first as LOCKED_HINT and the rest as ordinary LOCKED
+  tiles (so the search may still backtrack those, but never the hints); the built-in hint at the same cell is not placed twice.
+  `FrameStructure` backtracking now never undoes more than the number of hint tiles (was fixed at one placement).
+- Tests: 35 in Crystals, all pass (BoardRecordTest hint round trip, frame test hintTilesImportFirstStayPermanentAndAreSavedFirst).
+  NOT tried in the live applet.
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).
