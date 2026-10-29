@@ -43,7 +43,20 @@ public final class Palettes {
     }
 
     public static int background(int theme) {
+        return background(theme, false);
+    }
+
+    /** Board background; the dark variants keep the edge colours readable (Vivid goes to black, Soft to a warm charcoal). */
+    public static int background(int theme, boolean dark) {
+        if (dark) {
+            return theme == VIVID ? 0xFF000000 : 0xFF16191C;
+        }
         return theme == VIVID ? 0xFFFFFFFF : 0xFFF6F3EE;
+    }
+
+    /** Colour of the logo, title and menu button on the background above. */
+    public static int logo(boolean dark) {
+        return dark ? 0xFFE8E4DC : 0xFF3A4750;
     }
 
     /** True when edges carry a symbol (indexed by edge colour; the outside edge has none). */

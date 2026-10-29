@@ -20,8 +20,7 @@ import java.util.Map;
  */
 final class MusicPlayer {
     private static final String TAG = "uTurn";
-    private static final float VOLUME = 0.6f;
-    private static final float DUCKED_VOLUME = 0.15f;
+    private static final float DUCK_FACTOR = 0.25f;   // share of the volume kept while another app talks over us
 
     private final AudioManager audioManager;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -34,6 +33,8 @@ final class MusicPlayer {
     private AudioTrack track;
     private MusicSynth.Mood playingMood;
     private boolean released;
+    private float volume = 0.6f;        // 0..1, the player's own gain on top of the device media volume
+    private boolean ducked;
 
     MusicPlayer(Context context) {
         audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
@@ -51,6 +52,14 @@ final class MusicPlayer {
     void setMood(MusicSynth.Mood newMood) {
         mood = newMood;
         update();
+    }
+
+    /** Music gain 0..1, applied at once to the music that is playing. */
+    void setVolume(float newVolume) {
+        volume = Math.max(0f, Math.min(1f, newVolume));
+        if (track != null) {
+            track.setVolume(ducked ? volume * DUCK_FACTOR : volume);
+        }
     }
 
     void resume() {
@@ -73,12 +82,14 @@ final class MusicPlayer {
         mainHandler.post(() -> {
             if (change == AudioManager.AUDIOFOCUS_GAIN) {
                 focusLost = false;
+                ducked = false;
                 if (track != null) {
-                    track.setVolume(VOLUME);
+                    track.setVolume(volume);
                 }
             } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+                ducked = true;
                 if (track != null) {
-                    track.setVolume(DUCKED_VOLUME);
+                    track.setVolume(volume * DUCK_FACTOR);
                 }
             } else {
                 focusLost = true;
@@ -138,7 +149,7 @@ final class MusicPlayer {
                     .build();
             newTrack.write(pcm, 0, pcm.length);
             newTrack.setLoopPoints(0, pcm.length, -1);
-            newTrack.setVolume(VOLUME);
+            newTrack.setVolume(ducked ? volume * DUCK_FACTOR : volume);
             newTrack.play();
             track = newTrack;
             playingMood = moodToPlay;

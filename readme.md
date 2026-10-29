@@ -29,7 +29,7 @@ Controls
 * Undo and Redo (menu) step back and forward through your moves on the current level.
 * Hint (menu) outlines the next tile to move and a dashed outline shows where it goes; touch the board to dismiss it.
 * Levels (menu) replays any level reached. Each level earns up to 3 stars: 3 for no hints, 2 for one or two hints, 1 for more hints or watching the demo; your best is kept.
-* The options menu (action bar) has New Game, Demo Mode, Sound and Settings.
+* A floating menu button (top right) opens Undo, Redo, Hint, Levels, New Game, Demo Mode, Sound, Volume (separate sliders for the effects and the music) and Settings (colour theme, light / dark mode, background music). The logo sits above the board in portrait and to its left in landscape.
 * Demo Mode solves the board for you: corners first (rotated into place), then the edge tiles, then it verifies the border, then the inner tiles. Touch the screen to stop it.
 
 Winning

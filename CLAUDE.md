@@ -353,6 +353,21 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Tests: 35 in Crystals, all pass (BoardRecordTest hint round trip, frame test hintTilesImportFirstStayPermanentAndAreSavedFirst).
   NOT tried in the live applet.
 
+### Checkpoint 26 (uTurn: volumes, light/dark, no action bar) - user request after real-device use (sound effects far louder than the music)
+- Separate volumes: `sfxVolume` (default 40%) scales the SoundPool gain, `musicVolume` (default 60%) is `MusicPlayer.setVolume` (ducking is a
+  share of it); both are prefs, on top of the device media volume. Menu -> Volume (also under Settings) has a "Sound effects on" box and two sliders;
+  releasing the effects slider plays a preview.
+- Light / dark: pref `dark` (first run follows the device), Settings -> Light / dark mode. `Palettes.background(theme, dark)` and `Palettes.logo(dark)`;
+  dialogs and the popup menu are themed explicitly from `darkMode` (views inside dialogs use `dialogContext()`, otherwise their text takes the
+  activity's dark theme and is unreadable on a light dialog), status/navigation bar icons and colours follow it.
+- Layout: the action bar is gone (`AppTheme` = DeviceDefault.NoActionBar, `setDecorFitsSystemWindows(false)` on every version). The menu is a floating
+  hamburger (`ImageButton`, top right, placed from the insets) opening a `PopupMenu` of `options_menu.xml`. The logo (a U-turn arrow drawn in code) and
+  "uTurn" are drawn by the view: a 56 dp strip across the top in portrait, a 88 dp strip down the left (and 88 dp kept free on the right for the
+  button) in landscape, so the board now uses the full screen height in landscape. `reservedLeft/Top/Right` feed `relayout`, `init` and `rescaleBoard`.
+- Verified on API 31 and 37 emulators (portrait + landscape, menu, volume dialog, dark mode). NOT checked by ear: the new default volumes on a device.
+  The popup menu scrolls in landscape (Hint..Settings below the fold). A crash found on the way: `getInsetsController()` before `setContentView`.
+- Tests: 41 in uTurn (new: dark backgrounds and logo contrast in PalettesTest).
+
 ## Obsolete / to-modernise list (Android 12+)
 
 - No third-party runtime libraries; the only dependency is `CrystalsCommon.jar` (pure Java, Java 11 bytecode — fine).

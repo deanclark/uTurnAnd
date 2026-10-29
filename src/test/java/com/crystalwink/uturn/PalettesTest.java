@@ -37,6 +37,22 @@ public class PalettesTest {
     }
 
     @Test
+    public void darkBackgroundsAreDarkAndEveryEdgeColourStandsOutOnThem() {
+        for (int theme = 0; theme < Palettes.COUNT; theme++) {
+            int dark = Palettes.background(theme, true);
+            assertTrue(spread(dark) < 20);
+            assertTrue("dark background is dark", ((dark >> 16) & 0xFF) < 0x40);
+            assertTrue("light background is light", ((Palettes.background(theme, false) >> 16) & 0xFF) > 0xC0);
+            int[] edges = Palettes.edges(theme);
+            for (int index = 0; index < edges.length; index++) {
+                assertTrue("theme " + theme + " edge " + index, distance(edges[index], dark) > 40);
+            }
+            assertTrue(distance(Palettes.logo(true), dark) > 150);
+            assertTrue(distance(Palettes.logo(false), Palettes.background(theme, false)) > 150);
+        }
+    }
+
+    @Test
     public void softThemeIsCalmerThanVivid() {
         // average saturation proxy: distance of each interior colour from grey
         double soft = 0;

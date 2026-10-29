@@ -9,7 +9,8 @@ import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-//import android.graphics.Path;
+import android.graphics.Path;
+import android.graphics.RectF;
 //import android.graphics.Rect;
 //import android.graphics.drawable.shapes.Shape;
 import android.graphics.Insets;
@@ -21,13 +22,20 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.ContextThemeWrapper;
+import android.view.Gravity;
 import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.widget.AdapterView;
+import android.widget.CheckBox;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.GridView;
 import android.widget.Toast;
 import android.widget.AdapterView.OnItemClickListener;
@@ -68,7 +76,10 @@ public class uTurn extends Activity
         
     UTurnView uturnview;
 //    int TilesPerRow = 5;
-    int titleHight = 0;  // title bar height not required in full screen mode
+    // Strips kept clear of the board for the logo (top in portrait, left in landscape) and the floating menu button.
+    int reservedLeft, reservedTop, reservedRight;
+    private ImageButton menuButton;
+    boolean darkMode;
     int screenHeight; 
     int screenWidth;
     int insetLeft, insetTop, insetRight, insetBottom;
@@ -82,6 +93,11 @@ public class uTurn extends Activity
     private static final String PREF_THEME = "theme";
     private static final String PREF_MUSIC = "music";
     private static final String PREF_STARS = "stars";
+    private static final String PREF_SFX_VOLUME = "sfxVolume";
+    private static final String PREF_MUSIC_VOLUME = "musicVolume";
+    private static final String PREF_DARK = "dark";
+    private int sfxVolume = 40;     // percent; effects were far louder than the music at full gain
+    private int musicVolume = 60;   // percent
     private MusicPlayer musicPlayer;
     private final MoveHistory history = new MoveHistory();
     private int hintsUsed;   // this level; the basis for star ratings
@@ -179,17 +195,82 @@ public class uTurn extends Activity
 	   if(sound == SOUND_ROTATE || sound == SOUND_MOVE)
 	   {
 		    // SoundPool volume is 0..1; the device media volume is applied by the stream itself.
-		    int streamId = soundPool.play(soundPoolMap.get(sound), 1f, 1f, 1, 0, 1f);
+		    int streamId = soundPool.play(soundPoolMap.get(sound), sfxVolume / 100f, sfxVolume / 100f, 1, 0, 1f);
 		    Log.i(TAG, "playSound " + (sound == SOUND_ROTATE ? "rotate" : "move") + " stream " + streamId);
 	   }
    } 
 
-   /* Creates the menu items */ 
-   public boolean onCreateOptionsMenu(Menu menu) { 
-	    MenuInflater inflater = getMenuInflater(); 
-	    inflater.inflate(R.menu.options_menu, menu); 
-	    return true; 
-	} 
+   private int dp(float value) {
+       return Math.round(value * getResources().getDisplayMetrics().density);
+   }
+
+   /** Context for views placed inside a dialog, so their text and controls take the dialog's colours. */
+   private Context dialogContext() {
+       return new ContextThemeWrapper(this, darkMode
+               ? android.R.style.Theme_DeviceDefault_Dialog_Alert
+               : android.R.style.Theme_DeviceDefault_Light_Dialog_Alert);
+   }
+
+   /** Dialogs follow the game's own light / dark choice rather than the device's. */
+   private android.app.AlertDialog.Builder dialogBuilder() {
+       return new android.app.AlertDialog.Builder(this, darkMode
+               ? android.R.style.Theme_DeviceDefault_Dialog_Alert
+               : android.R.style.Theme_DeviceDefault_Light_Dialog_Alert);
+   }
+
+   /** The menu opens from the floating button at the top right (the action bar is gone). */
+   private void showMenu(View anchor) {
+       android.widget.PopupMenu popup = new android.widget.PopupMenu(new ContextThemeWrapper(this, darkMode
+               ? android.R.style.Theme_DeviceDefault : android.R.style.Theme_DeviceDefault_Light), anchor, Gravity.END);
+       popup.getMenuInflater().inflate(R.menu.options_menu, popup.getMenu());
+       prepareMenu(popup.getMenu());
+       popup.setOnMenuItemClickListener(this::onOptionsItemSelected);
+       popup.show();
+   }
+
+   @SuppressWarnings("deprecation")   // the bar colours are only honoured before Android 15; from then on they are always transparent
+   private void applyAppearance() {
+       getWindow().setStatusBarColor(Color.TRANSPARENT);
+       getWindow().setNavigationBarColor(Color.TRANSPARENT);
+       int colour = Palettes.logo(darkMode);
+       if (menuButton != null) {
+           android.graphics.drawable.GradientDrawable disc = new android.graphics.drawable.GradientDrawable();
+           disc.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+           disc.setColor(Palettes.background(theme, darkMode) & 0x00FFFFFF | 0xB0000000);
+           menuButton.setBackground(disc);
+           menuButton.setColorFilter(colour);
+       }
+       android.view.WindowInsetsController controller = getWindow().getInsetsController();
+       if (controller != null) {
+           int light = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                   | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+           controller.setSystemBarsAppearance(darkMode ? 0 : light, light);
+       }
+       if (uturnview != null) {
+           uturnview.invalidate();
+       }
+   }
+
+   private View buildContent() {
+       getWindow().setDecorFitsSystemWindows(false);   // same edge-to-edge behaviour on every Android version
+       FrameLayout root = new FrameLayout(this);
+       root.addView(uturnview, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+       menuButton = new ImageButton(this);
+       menuButton.setImageResource(R.drawable.ic_menu);
+       menuButton.setContentDescription(getString(R.string.menu_button));
+       menuButton.setOnClickListener(this::showMenu);
+       root.addView(menuButton, new FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP | Gravity.END));
+       return root;
+   }
+
+   private void placeMenuButton() {
+       if (menuButton != null) {
+           FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) menuButton.getLayoutParams();
+           params.topMargin = insetTop + dp(4);
+           params.rightMargin = insetRight + dp(4);
+           menuButton.setLayoutParams(params);
+       }
+   }
     
    private void newGame() {
 	   if (advanceLevelTask != null) {
@@ -245,7 +326,7 @@ public class uTurn extends Activity
            items[level - 1] = getString(R.string.level_item, level, starText(levelProgress.stars(level), true),
                    rules.columns, rules.rows);
        }
-       new android.app.AlertDialog.Builder(this)
+       dialogBuilder()
                .setTitle(getString(R.string.level_select_title, levelProgress.totalStars()))
                .setSingleChoiceItems(items, difficultyLevel - 1, (dialog, which) -> {
                    dialog.dismiss();
@@ -328,14 +409,12 @@ public class uTurn extends Activity
        return uturnview != null && !levelAdvancePending && !demoOn && !solving && initialTileId < 0;
    }
 
-   @Override
-   public boolean onPrepareOptionsMenu(Menu menu) {
+   private void prepareMenu(Menu menu) {
        boolean idle = gameIdle();
        menu.findItem(R.id.undo).setEnabled(idle && history.canUndo());
        menu.findItem(R.id.redo).setEnabled(idle && history.canRedo());
        menu.findItem(R.id.hint).setEnabled(idle);
        menu.findItem(R.id.levels).setEnabled(uturnview != null && !levelAdvancePending);
-       return super.onPrepareOptionsMenu(menu);
    }
 
    private void soundToggle() {
@@ -367,14 +446,19 @@ public class uTurn extends Activity
 
    /** Settings dialog. More options (haptics, hints...) belong here, see FEATURES.md. */
    private void settings() {
-       String[] items = {getString(R.string.settings_theme_title), getString(R.string.settings_music_title)};
-       new android.app.AlertDialog.Builder(this)
+       String[] items = {getString(R.string.settings_theme_title), getString(R.string.settings_appearance_title),
+               getString(R.string.settings_music_title), getString(R.string.menu_volume)};
+       dialogBuilder()
                .setTitle(R.string.settings_title)
                .setItems(items, (dialog, which) -> {
                    if (which == 0) {
                        chooseTheme();
-                   } else {
+                   } else if (which == 1) {
+                       chooseAppearance();
+                   } else if (which == 2) {
                        chooseMusic();
+                   } else {
+                       chooseVolume();
                    }
                })
                .setNegativeButton(android.R.string.cancel, null)
@@ -383,7 +467,7 @@ public class uTurn extends Activity
 
    private void chooseTheme() {
        String[] names = {getString(R.string.theme_soft), getString(R.string.theme_vivid), getString(R.string.theme_patterns)};
-       new android.app.AlertDialog.Builder(this)
+       dialogBuilder()
                .setTitle(R.string.settings_theme_title)
                .setSingleChoiceItems(names, theme, (dialog, which) -> {
                    applyTheme(which);
@@ -394,10 +478,73 @@ public class uTurn extends Activity
                .show();
    }
 
+   private void chooseAppearance() {
+       String[] names = {getString(R.string.appearance_light), getString(R.string.appearance_dark)};
+       dialogBuilder()
+               .setTitle(R.string.settings_appearance_title)
+               .setSingleChoiceItems(names, darkMode ? 1 : 0, (dialog, which) -> {
+                   darkMode = which == 1;
+                   applyAppearance();
+                   saveProgress(true);
+                   dialog.dismiss();
+               })
+               .setNegativeButton(android.R.string.cancel, null)
+               .show();
+   }
+
+   /** One slider row: a label above a 0..100 slider. */
+   private LinearLayout volumeRow(int label, int percent, java.util.function.IntConsumer onChange, Runnable onRelease) {
+       LinearLayout row = new LinearLayout(dialogContext());
+       row.setOrientation(LinearLayout.VERTICAL);
+       row.setPadding(0, dp(12), 0, 0);
+       TextView text = new TextView(dialogContext());
+       text.setText(label);
+       row.addView(text);
+       SeekBar bar = new SeekBar(dialogContext());
+       bar.setMax(100);
+       bar.setProgress(percent);
+       bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+           @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+               onChange.accept(progress);
+           }
+           @Override public void onStartTrackingTouch(SeekBar seekBar) { }
+           @Override public void onStopTrackingTouch(SeekBar seekBar) {
+               if (onRelease != null) {
+                   onRelease.run();
+               }
+           }
+       });
+       row.addView(bar);
+       return row;
+   }
+
+   /** Separate volumes for the move / rotate sounds and the background music (each on top of the device volume). */
+   private void chooseVolume() {
+       LinearLayout box = new LinearLayout(dialogContext());
+       box.setOrientation(LinearLayout.VERTICAL);
+       box.setPadding(dp(24), dp(8), dp(24), 0);
+       CheckBox soundBox = new CheckBox(dialogContext());
+       soundBox.setText(R.string.volume_sound_on);
+       soundBox.setChecked(soundOn);
+       soundBox.setOnCheckedChangeListener((button, checked) -> soundOn = checked);
+       box.addView(soundBox);
+       box.addView(volumeRow(R.string.volume_effects, sfxVolume, percent -> sfxVolume = percent, () -> playSound(SOUND_MOVE)));
+       box.addView(volumeRow(R.string.volume_music, musicVolume, percent -> {
+           musicVolume = percent;
+           musicPlayer.setVolume(percent / 100f);
+       }, null));
+       dialogBuilder()
+               .setTitle(R.string.volume_title)
+               .setView(box)
+               .setPositiveButton(android.R.string.ok, null)
+               .setOnDismissListener(dialog -> saveProgress(true))
+               .show();
+   }
+
    private void chooseMusic() {
        String[] names = {getString(R.string.music_off), getString(R.string.music_soothing),
                getString(R.string.music_focus), getString(R.string.music_intense)};
-       new android.app.AlertDialog.Builder(this)
+       dialogBuilder()
                .setTitle(R.string.settings_music_title)
                .setSingleChoiceItems(names, musicSetting, (dialog, which) -> {
                    musicSetting = which;
@@ -433,6 +580,9 @@ public class uTurn extends Activity
        } else if (itemId == id.soundToggle) {
     	   soundToggle();
            return true; 
+       } else if (itemId == id.volume) {
+           chooseVolume();
+           return true;
        } else if (itemId == id.settings) {
            settings(); 
            return true; 
@@ -457,21 +607,22 @@ public class uTurn extends Activity
         	Log.v(TAG, "onCreate() - Start");
         
         super.onCreate(savedInstanceState);
-        // The action bar is kept (no FEATURE_NO_TITLE / FLAG_FULLSCREEN) so the options menu stays reachable
-        // on devices without a hardware menu key. The playable area comes from the view's own size and window
-        // insets, so it also behaves under the edge-to-edge layout enforced from Android 15.
+        // No action bar: the menu is a floating button (top right) and the logo is drawn by the view, so the board gets the
+        // whole screen. The playable area comes from the view's own size, the window insets and the reserved strips.
         setVolumeControlStream(AudioManager.STREAM_MUSIC); 
         contextStored = this;
         loadProgress();
         initSounds();
         musicPlayer = new MusicPlayer(this);
+        musicPlayer.setVolume(musicVolume / 100f);
         musicPlayer.setMood(MusicSynth.fromSetting(musicSetting));
 
         uturnview = new UTurnView(this);
         
         if(showAllTiles)
         {
-            setContentView(uturnview);
+            setContentView(buildContent());
+            applyAppearance();   // needs the window's decor view, so only after setContentView
         }
         else
         {
@@ -499,6 +650,9 @@ public class uTurn extends Activity
         editor.putBoolean(PREF_SOUND, soundOn);
         editor.putInt(PREF_THEME, theme);
         editor.putInt(PREF_MUSIC, musicSetting);
+        editor.putInt(PREF_SFX_VOLUME, sfxVolume);
+        editor.putInt(PREF_MUSIC_VOLUME, musicVolume);
+        editor.putBoolean(PREF_DARK, darkMode);
         editor.putString(PREF_STARS, levelProgress.encode());
         if (includeBoard && uturnview != null && !levelAdvancePending && tiles[0] != null) {
             int cellCount = tilesPerRow * tilesPerCol;
@@ -524,6 +678,12 @@ public class uTurn extends Activity
         soundOn = prefs.getBoolean(PREF_SOUND, false);
         applyTheme(prefs.getInt(PREF_THEME, Palettes.SOFT));
         musicSetting = prefs.getInt(PREF_MUSIC, 0);
+        sfxVolume = Math.max(0, Math.min(100, prefs.getInt(PREF_SFX_VOLUME, 40)));
+        musicVolume = Math.max(0, Math.min(100, prefs.getInt(PREF_MUSIC_VOLUME, 60)));
+        // first run: follow the device's light / dark setting, afterwards the player's own choice
+        boolean deviceDark = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        darkMode = prefs.getBoolean(PREF_DARK, deviceDark);
         levelProgress = LevelProgress.decode(prefs.getString(PREF_STARS, null));
         GameState state = GameState.decode(prefs.getString(PREF_BOARD, null));
         LevelRules rules = LevelRules.forLevel(difficultyLevel);
@@ -679,6 +839,7 @@ public class uTurn extends Activity
                 insetTop = bars.top;
                 insetRight = bars.right;
                 insetBottom = bars.bottom;
+                placeMenuButton();
                 relayout();
                 return windowInsets;
             });
@@ -692,8 +853,12 @@ public class uTurn extends Activity
 
         /** (Re)start the game when the usable area is first known or changes. */
         private void relayout() {
-            int usableWidth = getWidth() - insetLeft - insetRight;
-            int usableHeight = getHeight() - insetTop - insetBottom - titleHight;
+            // portrait: logo strip across the top; landscape (short screen): logo left, menu button right, board between
+            boolean landscape = getWidth() > getHeight();
+            reservedTop = landscape ? 0 : dp(56);
+            reservedLeft = reservedRight = landscape ? dp(88) : 0;
+            int usableWidth = getWidth() - insetLeft - insetRight - reservedLeft - reservedRight;
+            int usableHeight = getHeight() - insetTop - insetBottom - reservedTop;
             if (usableWidth <= 0 || usableHeight <= 0) {
                 return;
             }
@@ -723,8 +888,8 @@ public class uTurn extends Activity
             }
             int scale = fitScale();
             Tile.setSegmentScale(scale);
-            originX = insetLeft + (screenWidth - scale * tilesPerRow) / 2;
-            originY = insetTop + (screenHeight - scale * tilesPerCol) / 2;
+            originX = insetLeft + reservedLeft + (screenWidth - scale * tilesPerRow) / 2;
+            originY = insetTop + reservedTop + (screenHeight - scale * tilesPerCol) / 2;
             for (int tileIndex = 0; tileIndex < cellCount; tileIndex++) {
                 tiles[tileIndex].rescale(scale);
                 tiles[tileIndex].moveTile(scale * (cellOfTile[tileIndex] % tilesPerRow) + scale / 2,
@@ -830,8 +995,8 @@ public class uTurn extends Activity
             Tile.setSegmentScale(scale);
 
             // centre the board within the usable area
-            originX = insetLeft + (screenWidth - scale * tilesPerRow) / 2;
-            originY = insetTop + (screenHeight - scale * tilesPerCol) / 2;
+            originX = insetLeft + reservedLeft + (screenWidth - scale * tilesPerRow) / 2;
+            originY = insetTop + reservedTop + (screenHeight - scale * tilesPerCol) / 2;
 
             // define frame dimensions to load tiles onto
             //tilesPerCol  = (int) java.lang.Math.round((screenHeight / Tile.getSegmentScale()) - 1.5);
@@ -1010,8 +1175,9 @@ public class uTurn extends Activity
 
             // make the entire canvas white
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Palettes.background(theme));
+            paint.setColor(Palettes.background(theme, darkMode));
             canvas.drawPaint(paint);
+            drawBranding(canvas);
             canvas.translate(originX, originY);
             // another way to do this is to use:
             // canvas.drawColor(Color.WHITE);
@@ -1084,6 +1250,62 @@ public class uTurn extends Activity
             redrawRequired = false;
         }
         
+        private final Paint logoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path logoPath = new Path();
+        private final RectF logoArc = new RectF();
+
+        /** A U-turn arrow: up the left side, over the top, down the right side. */
+        private void drawLogo(Canvas canvas, float x, float y, float size, int colour) {
+            logoPaint.setColor(colour);
+            logoPaint.setStyle(Paint.Style.STROKE);
+            logoPaint.setStrokeWidth(size * 0.13f);
+            logoPaint.setStrokeCap(Paint.Cap.ROUND);
+            logoPaint.setStrokeJoin(Paint.Join.ROUND);
+            logoPath.reset();
+            logoPath.moveTo(x + 0.25f * size, y + 0.95f * size);
+            logoPath.lineTo(x + 0.25f * size, y + 0.38f * size);
+            logoArc.set(x + 0.25f * size, y + 0.05f * size, x + 0.75f * size, y + 0.71f * size);
+            logoPath.arcTo(logoArc, 180f, 180f);
+            logoPath.lineTo(x + 0.75f * size, y + 0.58f * size);
+            canvas.drawPath(logoPath, logoPaint);
+            logoPaint.setStyle(Paint.Style.FILL);
+            logoPath.reset();
+            logoPath.moveTo(x + 0.55f * size, y + 0.58f * size);
+            logoPath.lineTo(x + 0.95f * size, y + 0.58f * size);
+            logoPath.lineTo(x + 0.75f * size, y + 0.95f * size);
+            logoPath.close();
+            canvas.drawPath(logoPath, logoPaint);
+        }
+
+        /** The logo and name replace the old title bar: across the top in portrait, down the left side in landscape. */
+        private void drawBranding(Canvas canvas) {
+            float density = getResources().getDisplayMetrics().density;
+            int colour = Palettes.logo(darkMode);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(colour);
+            paint.setAntiAlias(true);
+            paint.setFakeBoldText(true);
+            if (getWidth() > getHeight()) {
+                float size = 48 * density;
+                float centre = insetLeft + reservedLeft / 2f;
+                float top = insetTop + 16 * density;
+                drawLogo(canvas, centre - size / 2, top, size, colour);
+                paint.setTextAlign(Paint.Align.CENTER);
+                paint.setTextSize(18 * density);
+                canvas.drawText("uTurn", centre, top + size + 22 * density, paint);
+            } else {
+                float size = 36 * density;
+                float left = insetLeft + 16 * density;
+                float top = insetTop + 10 * density;
+                drawLogo(canvas, left, top, size, colour);
+                paint.setTextAlign(Paint.Align.LEFT);
+                paint.setTextSize(24 * density);
+                canvas.drawText("uTurn", left + size + 10 * density, top + size * 0.78f, paint);
+            }
+            paint.setFakeBoldText(false);
+            paint.setTextAlign(Paint.Align.LEFT);
+        }
+
         // if start and end tile are one in the same, rotate
         private void checkAndRotate(int initialTileId, int swapTileId){
         	// rotation if not moving/swap of a tile

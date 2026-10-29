@@ -25,4 +25,13 @@
     <string name="level_select_title">Levels  (%1$d stars)</string>
     <string name="level_item">Level %1$d   %2$s   %3$d×%4$d</string>
     <string name="theme_patterns">Patterns (colour-blind friendly)</string>
+    <string name="menu_volume">Volume</string>
+    <string name="menu_button">Menu</string>
+    <string name="volume_title">Volume</string>
+    <string name="volume_sound_on">Sound effects on</string>
+    <string name="volume_effects">Sound effects volume</string>
+    <string name="volume_music">Background music volume</string>
+    <string name="settings_appearance_title">Light / dark mode</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_dark">Dark</string>
 </resources>
