@@ -65,4 +65,4 @@ Running the application
 (`gradlew crystalsCommonJar` there, then copy `build/android-libs/CrystalsCommon.jar` here). The two repositories must be kept in step;
 `CLAUDE.md` records which Crystals commit the jar was built from.
 
-The Gradle build uses Android Gradle Plugin 9.4.0, Gradle 9.6.0, JDK 17 or newer, compile/target SDK 37, Android 12 (API 31) minimum, and Java 11 bytecode. The app uses `libs/CrystalsCommon.jar`.
+The Gradle build uses Android Gradle Plugin 9.5.0, Gradle 9.8.2, JDK 17 or newer, compile/target SDK 37, Android 12 (API 31) minimum, and Java 11 bytecode. The app uses `libs/CrystalsCommon.jar`.
