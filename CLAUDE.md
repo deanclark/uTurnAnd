@@ -22,7 +22,7 @@ current thinking, decisions and next steps so work can restart exactly where it 
 ## Build / run
 
 - uTurn: `./gradlew assembleDebug testDebugUnitTest lintDebug` (Windows: `gradlew.bat`).
-  AGP 9.4.0, Gradle 9.8.2, compile/target SDK 37, minSdk 31 (Android 12), Java 11 bytecode, JDK 17+ (25 works).
+  AGP 9.5.0, Gradle 9.8.2, compile/target SDK 37, minSdk 31 (Android 12), Java 11 bytecode, JDK 17+ (25 works).
 - Crystals: `./gradlew build` / `./gradlew crystalsCommonJar` (Gradle 9.8.2, Java 11 release).
   Entry point (desktop applet/frame): `com.crystalwink.crystals.GraphPanel.GraphPanel`/`Crystal`.
 - Android SDK: `C:\Users\deanc\AppData\Local\Android\Sdk`; emulators `uTurnApi31`, `Medium_Phone_API_37.0`.
@@ -361,7 +361,7 @@ current thinking, decisions and next steps so work can restart exactly where it 
 - Icon only has ldpi/mdpi/hdpi PNGs → add xhdpi/xxhdpi + adaptive icon (required look on Android 8+).
 - `android:screenOrientation="portrait"` is ignored on large screens from Android 16; board already lays out from view size.
 - Hard-coded colours `Color.DKGRAY/RED/…` palette → needs a replacement (patterns/pictures) for viral appeal.
-- Gradle 9.8.2 adopted. AGP stays 9.4.0: 9.5.0 exists but the installed Android Studio supports only up to 9.4.0 (2026-10-29); bump AGP after updating Studio.
+- AGP 9.5.0 + Gradle 9.8.2 adopted (Android Studio updated 2026-10-29); build, tests and lint pass.
 
 ## Backlog (in rough priority)
 
@@ -370,7 +370,7 @@ current thinking, decisions and next steps so work can restart exactly where it 
 3. uTurn: replace the colour palette with patterns/pictures per segment (viral appeal); celebration animation; share action;
    adaptive icon + xhdpi/xxhdpi; real settings screen; delete Eclipse leftovers and the dead GridView path.
 4. ~~Crystals: finish or delete the 45 stub tests.~~ Done: removed (checkpoint 18).
-5. AGP 9.5.0 once Android Studio is updated (Gradle 9.8.2 done).
+5. ~~AGP/Gradle bump~~ Done: AGP 9.5.0, Gradle 9.8.2.
 6. ~~Crystals: capture the best-fitting results to a file~~ Done (checkpoint 22). Still open: an in-app Import action / read-only viewer.
 7. Crystals: a deeper search than ~233 of 256 (more repair attempts per iteration, unlocking three neighbours only when hot, restarts that perturb
    the best board instead of clearing it); keep free tiles out of the status text at the bottom right.
