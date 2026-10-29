@@ -96,7 +96,7 @@ public class uTurn extends Activity
     private static final String PREF_SFX_VOLUME = "sfxVolume";
     private static final String PREF_MUSIC_VOLUME = "musicVolume";
     private static final String PREF_DARK = "dark";
-    private int sfxVolume = 40;     // percent; effects were far louder than the music at full gain
+    private int sfxVolume = 20;     // percent; effects were far louder than the music at full gain
     private int musicVolume = 60;   // percent
     private MusicPlayer musicPlayer;
     private final MoveHistory history = new MoveHistory();
@@ -678,7 +678,7 @@ public class uTurn extends Activity
         soundOn = prefs.getBoolean(PREF_SOUND, false);
         applyTheme(prefs.getInt(PREF_THEME, Palettes.SOFT));
         musicSetting = prefs.getInt(PREF_MUSIC, 0);
-        sfxVolume = Math.max(0, Math.min(100, prefs.getInt(PREF_SFX_VOLUME, 40)));
+        sfxVolume = Math.max(0, Math.min(100, prefs.getInt(PREF_SFX_VOLUME, 20)));
         musicVolume = Math.max(0, Math.min(100, prefs.getInt(PREF_MUSIC_VOLUME, 60)));
         // first run: follow the device's light / dark setting, afterwards the player's own choice
         boolean deviceDark = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)

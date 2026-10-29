@@ -354,7 +354,7 @@ current thinking, decisions and next steps so work can restart exactly where it 
   NOT tried in the live applet.
 
 ### Checkpoint 26 (uTurn: volumes, light/dark, no action bar) - user request after real-device use (sound effects far louder than the music)
-- Separate volumes: `sfxVolume` (default 40%) scales the SoundPool gain, `musicVolume` (default 60%) is `MusicPlayer.setVolume` (ducking is a
+- Separate volumes: `sfxVolume` (default 20%) scales the SoundPool gain, `musicVolume` (default 60%) is `MusicPlayer.setVolume` (ducking is a
   share of it); both are prefs, on top of the device media volume. Menu -> Volume (also under Settings) has a "Sound effects on" box and two sliders;
   releasing the effects slider plays a preview.
 - Light / dark: pref `dark` (first run follows the device), Settings -> Light / dark mode. `Palettes.background(theme, dark)` and `Palettes.logo(dark)`;
